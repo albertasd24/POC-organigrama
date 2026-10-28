@@ -1,0 +1,51 @@
+<header class="border-b border-zinc-200 bg-white">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-5 sm:px-8">
+    <div class="flex items-center gap-3">
+      <span class="flex size-10 items-center justify-center rounded-lg bg-emerald-700 text-white"><svg lucideNetwork class="size-5" aria-hidden="true"></svg></span>
+      <div><p class="text-lg font-bold">Procesos</p><p class="text-xs text-zinc-600">Participantes y cargos</p></div>
+    </div>
+    <a href="/demo/org-chart" class="text-sm font-semibold text-emerald-700 underline">Demo del componente</a>
+    <output class="inline-flex items-center gap-2 px-3 py-1 text-xs font-semibold text-amber-900"><svg lucideUsers class="size-4" aria-hidden="true"></svg>{{ procesos().length }} procesos &middot; {{ assignmentCount() }} asignaciones</output>
+  </div>
+</header>
+<main class="mx-auto max-w-7xl px-5 py-8 sm:px-8">
+  <h1 class="mb-6 text-3xl font-bold">Organigrama de procesos</h1>
+  <section aria-labelledby="create-process" class="mb-6 border-b border-zinc-200 pb-6">
+    <h2 id="create-process" class="mb-3 text-base font-semibold">Nuevo proceso</h2>
+    <form #processForm class="grid items-end gap-4 md:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]" (submit)="addProcess($event, processForm)">
+      <label class="min-w-0 text-xs font-semibold text-zinc-700" for="process-title">Titulo<input id="process-title" name="titulo" required maxlength="80" class="form-field" placeholder="Nombre del proceso"></label>
+      <label class="min-w-0 text-xs font-semibold text-zinc-700" for="process-subtitle">Subtitulo<input id="process-subtitle" name="subtitulo" required maxlength="100" class="form-field" placeholder="Objetivo o descripcion"></label>
+      <label class="min-w-0 text-xs font-semibold text-zinc-700" for="process-parent">Proceso padre<select id="process-parent" name="parentId" required class="form-field">@for (proceso of procesos(); track proceso.id) { <option [value]="proceso.id">{{ proceso.titulo }}</option> }</select></label>
+      <button type="submit" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"><svg lucidePlus class="size-4" aria-hidden="true"></svg>Crear proceso</button>
+    </form>
+    @if (processError()) { <p role="alert" class="mt-3 text-sm text-red-700">{{ processError() }}</p> }
+  </section>
+  <section aria-labelledby="assign-participant" class="mb-6">
+    <h2 id="assign-participant" class="mb-3 text-base font-semibold">Asignar participante</h2>
+    <form #participantForm class="grid items-end gap-4 md:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]" (submit)="addParticipant($event, participantForm)">
+      <label class="min-w-0 text-xs font-semibold text-zinc-700" for="assignment-process">Proceso<select id="assignment-process" name="procesoId" required class="form-field" [value]="selectedId()">@for (proceso of procesos(); track proceso.id) { <option [value]="proceso.id">{{ proceso.titulo }}</option> }</select></label>
+      <label class="min-w-0 text-xs font-semibold text-zinc-700" for="assignment-person">Persona<select id="assignment-person" name="personaId" required class="form-field">@for (persona of personas; track persona.id) { <option [value]="persona.id">{{ persona.nombre }}</option> }</select></label>
+      <label class="min-w-0 text-xs font-semibold text-zinc-700" for="assignment-role">Cargo en el proceso<select id="assignment-role" name="cargoId" required class="form-field">@for (cargo of cargos; track cargo.id) { <option [value]="cargo.id">{{ cargo.nombre }}</option> }</select></label>
+      <button type="submit" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"><svg lucidePlus class="size-4" aria-hidden="true"></svg>Asignar</button>
+    </form>
+    @if (assignmentError()) { <p role="alert" class="mt-3 text-sm text-red-700">{{ assignmentError() }}</p> }
+  </section>
+  <app-org-chart [nodes]="nodes()" [cardFields]="processCardFields" [nodeWidth]="300" [nodeHeight]="140" (nodeSelected)="selectNode($event)" />
+  @if (selectedProcess(); as proceso) {
+    <section aria-labelledby="selected-process" class="mt-6 border-t border-zinc-200 pt-5">
+      <h2 id="selected-process" class="break-words text-xl font-semibold">{{ proceso.titulo }}</h2>
+      <p class="mt-1 break-words text-sm text-zinc-600">{{ proceso.subtitulo }}</p>
+      <h3 class="mt-4 text-sm font-semibold">Participantes asignados ({{ proceso.participantes.length }})</h3>
+      <ul class="mt-2 divide-y divide-zinc-200" aria-label="Participantes del proceso seleccionado">
+        @for (participante of proceso.participantes; track $index) {
+          <li class="flex items-center justify-between gap-3 py-3">
+            <div class="min-w-0 break-words text-sm"><p class="font-semibold">{{ participante.persona.nombre }}</p><p class="text-zinc-600">{{ participante.cargo.nombre }}</p>@if (participante.persona.correo) { <p class="text-zinc-600">{{ participante.persona.correo }}</p> }</div>
+            <button type="button" class="chart-tool shrink-0" [attr.aria-label]="'Retirar a ' + participante.persona.nombre + ' como ' + participante.cargo.nombre" title="Retirar asignacion" (click)="removeParticipant(proceso.id, participante.persona.id, participante.cargo.id)"><svg lucideX class="size-4" aria-hidden="true"></svg></button>
+          </li>
+        } @empty {
+          <li class="py-3 text-sm text-zinc-600">Sin participantes asignados.</li>
+        }
+      </ul>
+    </section>
+  }
+</main>

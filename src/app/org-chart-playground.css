@@ -1,0 +1,30 @@
+:host { display: block; color: #18181b; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 20px 24px; background: #fff; border-bottom: 1px solid #d4d4d8; }
+h1 { margin: 0; font-size: 24px; font-weight: 700; }
+h2 { margin: 0 0 20px; font-size: 18px; font-weight: 700; }
+a { color: #047857; text-decoration: underline; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-left: auto; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; }
+.chart { min-width: 0; padding: 20px; }
+aside { min-width: 0; padding: 24px; background: #fff; border-left: 1px solid #d4d4d8; }
+dl { display: grid; grid-template-columns: 65px minmax(0, 1fr); gap: 8px; padding-bottom: 20px; margin: 0 0 20px; border-bottom: 1px solid #e4e4e7; font-size: 13px; }
+dt { color: #52525b; }
+dd { margin: 0; overflow-wrap: anywhere; }
+form { display: grid; gap: 14px; }
+label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
+input:not([type='checkbox']), select { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid #a1a1aa; border-radius: 6px; padding: 9px; font: inherit; background: #fff; }
+button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 1px solid #d4d4d8; border-radius: 6px; background: #fff; font-size: 14px; font-weight: 600; }
+button:hover { background: #f4f4f5; }
+button.primary { color: #fff; background: #047857; border-color: #047857; }
+button.primary:hover { background: #065f46; }
+svg { width: 18px; height: 18px; flex-shrink: 0; }
+.error, .danger { color: #b91c1c; }
+.delete { display: grid; gap: 14px; border-top: 1px solid #e4e4e7; margin-top: 24px; padding-top: 20px; }
+.checkbox { display: flex; align-items: flex-start; gap: 8px; font-weight: 400; }
+.checkbox input { margin-top: 3px; }
+[role='status'] { font-size: 13px; color: #065f46; margin-top: 16px; }
+@media (max-width: 900px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+  aside { border-left: 0; border-top: 1px solid #d4d4d8; }
+  .chart { padding: 12px; }
+}

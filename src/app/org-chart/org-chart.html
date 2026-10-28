@@ -1,0 +1,32 @@
+<div class="toolbar">
+  <span>{{ nodes().length }} nodos</span>
+  <div class="tools" role="group" aria-label="Controles del organigrama">
+    <button type="button" class="chart-tool" title="Alejar" aria-label="Alejar" [disabled]="!ready() || !!error() || !nodes().length" (click)="zoomOut()"><svg lucideMinus aria-hidden="true" class="size-4"></svg></button>
+    <button type="button" class="chart-tool" title="Acercar" aria-label="Acercar" [disabled]="!ready() || !!error() || !nodes().length" (click)="zoomIn()"><svg lucidePlus aria-hidden="true" class="size-4"></svg></button>
+    <button type="button" class="chart-tool" title="Ajustar a pantalla" aria-label="Ajustar a pantalla" [disabled]="!ready() || !!error() || !nodes().length" (click)="fit()"><svg lucideMaximize aria-hidden="true" class="size-4"></svg></button>
+    <button type="button" class="chart-tool" title="Expandir todos" aria-label="Expandir todos" [disabled]="!ready() || !!error() || !nodes().length" (click)="expandAll()"><svg lucideExpand aria-hidden="true" class="size-4"></svg></button>
+    <button type="button" class="chart-tool" title="Contraer todos" aria-label="Contraer todos" [disabled]="!ready() || !!error() || !nodes().length" (click)="collapseAll()"><svg lucideShrink aria-hidden="true" class="size-4"></svg></button>
+  </div>
+</div>
+@if (error()) {
+  <p role="alert" class="error">{{ error() }}</p>
+} @else if (!nodes().length) {
+  <p role="status">Sin nodos.</p>
+} @else if (!ready()) {
+  <p role="status">Cargando organigrama...</p>
+}
+<div #chartHost class="canvas" [style.height.px]="height()" aria-hidden="true"></div>
+<details>
+  <summary>Directorio del organigrama</summary>
+  <ul>
+    @for (node of nodes(); track $index) {
+      <li><button type="button" class="directory-node" [attr.aria-pressed]="selectedNodeId() === node.id" (click)="nodeSelected.emit(node)">
+        <strong>{{ node.name }}</strong>
+        <span>{{ node.role }}</span>
+        @for (field of cardFields()(node); track $index) {
+          <small>{{ field.label }}: {{ field.value ?? '-' }}</small>
+        }
+      </button></li>
+    }
+  </ul>
+</details>
