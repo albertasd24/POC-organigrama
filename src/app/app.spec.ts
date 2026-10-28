@@ -1,97 +1,77 @@
 import { TestBed } from '@angular/core/testing';
-import { ProcessDemo as App } from './app';
+import { ProcessDemo } from './app';
+import { OrgChartComponent } from './org-chart';
+import { By } from '@angular/platform-browser';
 
-describe('App', () => {
+describe('ProcessDemo', () => {
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [App],
-    }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [ProcessDemo] }).compileComponents();
   });
 
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
-
-  it('shows custom card fields in the accessible directory', async () => {
-    const fixture = TestBed.createComponent(App);
+  it('renders process, area and cargo types in a single-root hierarchy', async () => {
+    const fixture = TestBed.createComponent(ProcessDemo);
     await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    const buttons = Array.from(compiled.querySelectorAll<HTMLButtonElement>('details button'));
-    const person = buttons.find((button) => button.textContent?.includes('Diego Torres'))!;
-    expect(person.textContent).toContain('Desarrollador');
-    expect(person.textContent).toContain('Tipo: Participante');
-    const process = buttons.find((button) => button.textContent?.includes('Productos y servicios digitales'))!;
-    expect(process.textContent).not.toContain('Diego Torres');
-    expect(buttons).toHaveLength(9);
-    expect(compiled.querySelector('details')?.textContent).toContain('Productos y servicios digitales');
+    const element = fixture.nativeElement as HTMLElement;
+    const component = fixture.componentInstance as unknown as {
+      nodes: () => readonly { name: string; parentId: string | null; data?: { kind: string } }[];
+    };
+    expect(element.querySelector('h1')?.textContent).toContain('Organigrama de procesos');
+    expect(element.querySelectorAll('[aria-label="Opcion del proceso"] button')).toHaveLength(2);
+    expect(element.querySelectorAll('nav[aria-label="Lista de procesos"] button')).toHaveLength(3);
+    expect(component.nodes().filter((node) => node.parentId === null)).toHaveLength(1);
+    expect(component.nodes().map((node) => node.data?.kind)).toEqual([
+      'process', 'area', 'cargo', 'cargo', 'area', 'cargo', 'area', 'cargo',
+    ]);
+    expect(element.querySelector('details')?.textContent).toContain('Tipo: Proceso');
   });
 
-  it('should render title', async () => {
-    const fixture = TestBed.createComponent(App);
+  it('keeps X and Y as options outside the chart and switches the selected process', async () => {
+    const fixture = TestBed.createComponent(ProcessDemo);
     await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Organigrama');
+    const element = fixture.nativeElement as HTMLElement;
+    const optionButtons = element.querySelectorAll<HTMLButtonElement>('[aria-label="Opcion del proceso"] button');
+    optionButtons[1].click();
+    await fixture.whenStable();
+    expect(element.querySelector('#selected-process')?.textContent).toContain('Gestion empresarial');
+    expect(Array.from(element.querySelectorAll('details button')).some((button) => button.textContent?.trim() === 'Y')).toBe(false);
+    element.querySelector<HTMLButtonElement>('nav[aria-label="Lista de procesos"] button:nth-child(2)')!.click();
+    await fixture.whenStable();
+    expect(element.querySelector('#selected-process')?.textContent).toContain('Atencion al cliente');
+    expect(element.querySelector('[aria-label="Opcion del proceso"] button[aria-pressed="true"]')?.textContent).toBe('X');
   });
 
-  it('adds a process through the form', async () => {
-    const fixture = TestBed.createComponent(App);
+  it('creates a process with X/Y options but no option nodes', async () => {
+    const fixture = TestBed.createComponent(ProcessDemo);
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     element.querySelector<HTMLInputElement>('[name="titulo"]')!.value = 'Compras';
     element.querySelector<HTMLInputElement>('[name="subtitulo"]')!.value = 'Abastecimiento';
     element.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await fixture.whenStable();
-    expect(element.textContent).toContain('4 procesos');
-    expect(element.querySelector('details')?.textContent).toContain('Compras');
-    expect(element.querySelector('#selected-process')?.textContent).toBe('Compras');
-    expect(element.textContent).toContain('Sin participantes asignados.');
+    expect(element.querySelectorAll('nav[aria-label="Lista de procesos"] button')).toHaveLength(4);
+    expect(element.querySelector('#selected-process')?.textContent).toContain('Compras');
+    expect(element.querySelectorAll('[aria-label="Opcion del proceso"] button')).toHaveLength(2);
+    const chart = fixture.debugElement.query(By.directive(OrgChartComponent)).componentInstance as OrgChartComponent;
+    expect(chart.nodes().map((node) => node.data?.kind)).toEqual(['process']);
   });
 
-  it('assigns a person, rejects duplicates and removes the assignment', async () => {
-    const fixture = TestBed.createComponent(App);
+  it('assigns a person to a cargo, rejects duplicates, and supports removal', async () => {
+    const fixture = TestBed.createComponent(ProcessDemo);
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
-    element.querySelector<HTMLSelectElement>('[name="personaId"]')!.value = 'diego';
-    element.querySelector<HTMLSelectElement>('[name="cargoId"]')!.value = 'analista';
     const form = element.querySelector<HTMLFormElement>('form:has([name="personaId"])')!;
+    element.querySelector<HTMLSelectElement>('[name="personaId"]')!.value = 'sofia';
+    element.querySelector<HTMLSelectElement>('[name="cargoId"]')!.value = 'lider-digital';
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await fixture.whenStable();
-    expect(element.textContent).toContain('7 asignaciones');
-    expect(Array.from(element.querySelectorAll('details button')).some((button) =>
-      button.textContent?.includes('Diego Torres') && button.textContent.includes('Analista'))).toBe(true);
-    expect(element.querySelectorAll('details button')).toHaveLength(10);
+    expect(element.textContent).toContain('7 personas asignadas');
+    expect(element.querySelector('[aria-label="Personas asignadas al cargo"]')?.textContent).toContain('Sofia Lopez');
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await fixture.whenStable();
-    expect(element.querySelector('[role="alert"]')?.textContent).toContain('ya tiene ese cargo');
-    element.querySelector<HTMLButtonElement>('[aria-label="Retirar a Diego Torres como Analista"]')!.click();
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('ya esta asignada');
+    element.querySelector<HTMLButtonElement>('[aria-label="Retirar a Sofia Lopez del cargo Lider de tecnologia"]')!.click();
     await fixture.whenStable();
-    expect(element.textContent).toContain('6 asignaciones');
-    expect(element.querySelectorAll('details button')).toHaveLength(9);
-    expect(element.querySelector('[aria-label="Retirar a Ana Martinez como Lider de proceso"]')).not.toBeNull();
-  });
-
-  it('updates selected process details from the directory', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const element = fixture.nativeElement as HTMLElement;
-    Array.from(element.querySelectorAll<HTMLButtonElement>('details button'))
-      .find((button) => button.textContent?.includes('Tecnologia'))!.click();
-    await fixture.whenStable();
-    expect(element.querySelector('#selected-process')?.textContent).toBe('Tecnologia');
-    expect(element.querySelector('[aria-label="Participantes del proceso seleccionado"]')?.textContent)
-      .toContain('Diego Torres');
-  });
-
-  it('selects the owning process when a participant node is clicked', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const element = fixture.nativeElement as HTMLElement;
-    Array.from(element.querySelectorAll<HTMLButtonElement>('details button'))
-      .find((button) => button.textContent?.includes('Diego Torres'))!.click();
-    await fixture.whenStable();
-    expect(element.querySelector('#selected-process')?.textContent).toBe('Tecnologia');
-    expect(element.querySelector<HTMLSelectElement>('[name="procesoId"]')?.value).toBe('tecnologia');
+    expect(element.textContent).toContain('6 personas asignadas');
+    expect(element.querySelector('[aria-label="Personas asignadas al cargo"]')?.textContent).not.toContain('Sofia Lopez');
   });
 });

@@ -4,17 +4,40 @@ import { RouterLink } from '@angular/router';
 import { LucidePlus, LucideRotateCcw, LucideSave, LucideTrash2 } from '@lucide/angular';
 import { addOrgNode, OrgCardField, OrgChartComponent, OrgNode, removeOrgNode, updateOrgNode } from './org-chart';
 
+type DemoNodeKind = 'process' | 'area' | 'cargo';
+
 interface DemoData {
-  readonly department: string;
+  readonly kind: DemoNodeKind;
   readonly email: string;
 }
 
 function initialNodes(): OrgNode<DemoData>[] {
   return [
-    { id: 'direccion', parentId: null, name: 'Ana Martinez', role: 'Directora', data: { department: 'Direccion', email: 'ana@example.com' } },
-    { id: 'tecnologia', parentId: 'direccion', name: 'Carlos Ruiz', role: 'Lider de tecnologia', data: { department: 'Tecnologia', email: 'carlos@example.com' } },
-    { id: 'operaciones', parentId: 'direccion', name: 'Laura Gomez', role: 'Lider de operaciones', data: { department: 'Operaciones', email: 'laura@example.com' } },
+    { id: 'proceso', parentId: null, name: 'Gestion empresarial', role: 'Direccion y estrategia', data: { kind: 'process', email: '' } },
+    { id: 'area-digital', parentId: 'proceso', name: 'Digital', role: 'Area del proceso', data: { kind: 'area', email: '' } },
+    { id: 'area-financiera', parentId: 'proceso', name: 'Financiera', role: 'Area del proceso', data: { kind: 'area', email: '' } },
+    { id: 'area-humana', parentId: 'proceso', name: 'Gestion Humana', role: 'Area del proceso', data: { kind: 'area', email: '' } },
+    { id: 'cargo-desarrollo', parentId: 'area-digital', name: 'Desarrollador', role: 'Cargo del area', data: { kind: 'cargo', email: 'carlos@example.com' } },
+    { id: 'cargo-lider', parentId: 'area-digital', name: 'Lider de tecnologia', role: 'Cargo del area', data: { kind: 'cargo', email: 'ana@example.com' } },
+    { id: 'cargo-analista', parentId: 'area-financiera', name: 'Analista financiero', role: 'Cargo del area', data: { kind: 'cargo', email: 'laura@example.com' } },
   ];
+}
+
+function validateDemoHierarchy(nodes: readonly OrgNode<DemoData>[]): void {
+  if (!nodes.length) return;
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  for (const node of nodes) {
+    const parent = node.parentId ? byId.get(node.parentId) : undefined;
+    const valid = node.data?.kind === 'process'
+      ? node.parentId === null
+      : node.data?.kind === 'area'
+        ? parent?.data?.kind === 'process'
+        : node.data?.kind === 'cargo' && parent?.data?.kind === 'area';
+    if (!valid) throw new Error('La jerarquia permitida es proceso > area > cargo.');
+  }
+  if (nodes.filter((node) => node.data?.kind === 'process').length !== 1) {
+    throw new Error('El organigrama debe tener exactamente un nodo de proceso raiz.');
+  }
 }
 
 @Component({
@@ -35,12 +58,17 @@ export class OrgChartDemo {
   readonly form = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.maxLength(80)] }),
     role: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.maxLength(100)] }),
+    kind: new FormControl<DemoNodeKind>('area', { nonNullable: true }),
     parentId: new FormControl('', { nonNullable: true }),
-    department: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(80)] }),
     email: new FormControl('', { nonNullable: true, validators: [Validators.email, Validators.maxLength(160)] }),
   });
+  readonly nodeKinds: readonly { readonly value: DemoNodeKind; readonly label: string }[] = [
+    { value: 'process', label: 'Proceso' },
+    { value: 'area', label: 'Area' },
+    { value: 'cargo', label: 'Cargo' },
+  ];
   readonly cardFields = (node: OrgNode<DemoData>): readonly OrgCardField[] => [
-    { label: 'Area', value: node.data?.department },
+    { label: 'Tipo', value: this.kindLabel(node.data?.kind) },
   ];
 
   constructor() {
@@ -52,13 +80,39 @@ export class OrgChartDemo {
     this.creating.set(false);
     this.error.set(null);
     this.cascade.setValue(false);
-    this.form.reset({ name: node.name, role: node.role, parentId: node.parentId ?? '', department: node.data?.department ?? '', email: node.data?.email ?? '' });
+    this.form.reset({ name: node.name, role: node.role, kind: node.data?.kind ?? 'cargo', parentId: node.parentId ?? '', email: node.data?.email ?? '' });
   }
 
   startCreate(): void {
     this.creating.set(true);
     this.error.set(null);
-    this.form.reset({ parentId: this.selectedId() ?? this.nodes()[0]?.id ?? '' });
+    const selected = this.selected();
+    const kind: DemoNodeKind = !this.nodes().length ? 'process' : selected?.data?.kind === 'process' ? 'area' : 'cargo';
+    const parentId = kind === 'cargo' && selected?.data?.kind === 'cargo' ? selected.parentId ?? '' : selected?.id ?? '';
+    this.form.reset({ name: '', role: '', kind, parentId, email: '' });
+  }
+
+  parentNodes(): readonly OrgNode<DemoData>[] {
+    const kind = this.form.controls.kind.value;
+    return this.nodes().filter((node) => this.canBeParent(kind, node) && (!this.creating() || node.id !== this.selectedId()));
+  }
+
+  typeChanged(): void {
+    this.form.controls.parentId.setValue(this.parentNodes()[0]?.id ?? '');
+  }
+
+  kindLabel(kind: DemoNodeKind | undefined): string {
+    return this.nodeKinds.find((item) => item.value === kind)?.label ?? '-';
+  }
+
+  parentName(node: OrgNode<DemoData>): string {
+    return this.nodes().find((item) => item.id === node.parentId)?.name ?? '-';
+  }
+
+  private canBeParent(kind: DemoNodeKind, node: OrgNode<DemoData>): boolean {
+    if (kind === 'area') return node.data?.kind === 'process';
+    if (kind === 'cargo') return node.data?.kind === 'area';
+    return false;
   }
 
   save(): void {
@@ -73,9 +127,13 @@ export class OrgChartDemo {
         id: this.creating() ? crypto.randomUUID() : this.selectedId()!,
         parentId: values.parentId || null,
         name: values.name.trim(), role: values.role.trim(),
-        data: { department: values.department.trim(), email: values.email.trim() },
+        data: { kind: values.kind, email: values.email.trim() },
       };
-      this.nodes.update((nodes) => this.creating() ? addOrgNode(nodes, node) : updateOrgNode(nodes, node.id, node));
+      this.nodes.update((nodes) => {
+        const updated = this.creating() ? addOrgNode(nodes, node) : updateOrgNode(nodes, node.id, node);
+        validateDemoHierarchy(updated);
+        return updated;
+      });
       this.status.set(this.creating() ? 'Nodo creado.' : 'Nodo actualizado.');
       this.selectNode(node);
     } catch (error: unknown) {

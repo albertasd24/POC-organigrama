@@ -2,8 +2,9 @@
 
 Prueba de concepto en Angular para representar jerarquias con `d3-org-chart`,
 seleccionar nodos y administrar sus datos desde componentes consumidores.
-Incluye un componente visual generico, funciones puras para operaciones CRUD
-y dos pantallas de ejemplo: procesos con participantes y un editor independiente.
+La pantalla principal lista procesos y muestra sus alternativas X/Y como
+controles de seleccion; el organigrama de cada alternativa usa los tipos
+proceso, area y cargo. Incluye un editor generico independiente.
 
 **Estado:** POC funcional. El codigo reutilizable esta dentro de la aplicacion;
 todavia no es un paquete Angular publicado. No requiere Storybook ni un backend.
@@ -37,14 +38,15 @@ todavia no es un paquete Angular publicado. No requiere Storybook ni un backend.
 | CRUD inmutable | Funciones para crear, editar y eliminar nodos; borrado de ramas con cascada explicita. |
 | Navegacion del grafico | Zoom, ajuste, expansion y contraccion. |
 | Seleccion y detalle | Panel lateral en la demo generica y detalle del proceso en la pantalla principal. |
-| Modelo de negocio separado | Adaptador de procesos, personas y cargos al contrato visual. |
+| Modelo de negocio separado | Adaptador tipado de procesos, areas, cargos y personas asignadas. |
+| Alternativas por proceso | X/Y son botones de seleccion y no forman parte del arbol de nodos. |
 | Renderizado compatible con SSR | La estructura Angular se renderiza sin D3; el grafico se inicializa en el navegador. |
 | Alternativa al SVG | Directorio con botones seleccionables mediante teclado. |
 
 No estan implementados: persistencia, servicios HTTP de negocio, autenticacion,
 autorizacion, arrastrar para cambiar de padre, exportacion, virtualizacion,
 plantillas Angular dentro de las tarjetas ni publicacion npm de la biblioteca.
-La pantalla de procesos permite crear procesos y administrar asignaciones;
+La pantalla principal permite crear procesos, areas y cargos, y administrar asignaciones;
 el CRUD generico completo se demuestra en `/demo/org-chart`.
 
 Los datos viven en memoria: navegar entre pantallas o recargar puede recrear
@@ -86,7 +88,7 @@ en CI o para una instalacion reproducible cuando este sincronizado con
 
 | URL local por defecto | Pantalla |
 | --- | --- |
-| http://localhost:4200/ | Procesos, participantes y cargos. |
+| http://localhost:4200/ | Lista de procesos, opciones X/Y, areas y cargos. |
 | http://localhost:4200/demo/org-chart | Demo generica con CRUD y panel lateral. |
 
 Para usar otro puerto:
@@ -308,7 +310,7 @@ propios y sin dependencia de los formularios o del panel lateral.
 - **Eliminar:** `remove()` llama a `removeOrgNode`. Si hay hijos se rechaza
 	la operacion, salvo que marques la casilla de eliminar descendientes.
 	Borrar la raiz con cascada deja el grafico vacio y permite crear otra raiz.
-- **Restablecer:** `reset()` recupera los tres nodos iniciales.
+- **Restablecer:** `reset()` recupera los nodos iniciales (proceso, areas y cargos).
 - **Seleccionar:** hacer clic en una tarjeta o en el directorio emite
 	`nodeSelected`. El consumidor conserva el ID y muestra nombre, cargo, area,
 	correo e ID en un panel lateral, debajo del grafico en pantallas pequenas.
@@ -424,83 +426,116 @@ En el consumidor, declara `selectedId = signal<string | null>(null)` y
 Derivar la seleccion desde el arreglo mantiene el panel actualizado al editar.
 La ubicacion y el contenido del panel pertenecen al consumidor, no al chart.
 
-### Ejemplo implementado: procesos y participantes
+### Ejemplo implementado: procesos, areas y cargos
 
-La pantalla inicial ahora muestra procesos con titulo, subtitulo y participantes
-asignados. `src/app/process.model.ts` contiene los contratos `Proceso`, `Persona`,
-`Cargo` y `Participante`, ademas de `buildProcessNodes` y `assignParticipant`.
-El componente generico del grafico no conoce estos modelos de negocio.
+La pagina inicial presenta una lista de procesos. Al elegir uno, se muestran
+dos controles, **X** e **Y**, para seleccionar la alternativa del proceso. Son
+botones de navegacion/seleccion, no nodos ni niveles de la jerarquia. Cada
+alternativa tiene sus propias areas y cargos.
 
-- `parentId` relaciona procesos. El adaptador genera ademas un nodo hijo
-	independiente por cada participante asignado a un proceso.
-- El cargo pertenece a la asignacion. Una persona puede participar en varios
-	procesos o tener cargos diferentes en uno; no se permite repetir la misma
-	combinacion persona/cargo dentro de un proceso.
-- El formulario de nuevo proceso crea un hijo del proceso padre elegido.
-- El formulario de participantes usa los catalogos locales `personas` y `cargos`
-	de `src/app/app.ts`; puedes reemplazarlos por datos de tu API.
-- La tarjeta de proceso muestra titulo y subtitulo; la tarjeta de participante
-	muestra nombre y cargo. Los participantes ya no son filas de la tarjeta de proceso.
-- Al seleccionar un proceso o uno de sus participantes en el grafico o el
-	directorio, aparece el detalle del proceso con la lista completa y controles
-	para retirar asignaciones. Retirar una asignacion elimina tambien su nodo hijo.
-- El estado vive en signals y se actualiza sin mutaciones. No hay persistencia:
-	recargar la pagina restaura los datos de ejemplo.
+El organigrama de la alternativa elegida tiene esta estructura:
+
+```text
+Proceso (raiz)
+├── Area (por ejemplo, Digital)
+│   ├── Cargo (por ejemplo, Desarrollador)
+│   └── Cargo (por ejemplo, Lider de tecnologia)
+├── Area (por ejemplo, Financiera)
+│   └── Cargo (por ejemplo, Analista financiero)
+└── Area (por ejemplo, Gestion Humana)
+    └── Cargo
+```
+
+`src/app/process.model.ts` define `Proceso`, `ProcesoOpcion`, `Area`, `Cargo`
+y `Persona`. `buildProcessNodes(proceso, opcionId)` adapta una sola alternativa
+a `OrgNode<ProcessNodeData>[]`; las personas asignadas se guardan en los datos
+del cargo y no generan nodos adicionales.
+
+| Tipo de nodo (`node.data.kind`) | Contenido | Padre |
+| --- | --- | --- |
+| `process` | Proceso seleccionado, con titulo y subtitulo. | Ninguno; es la raiz. |
+| `area` | Area que pertenece a la alternativa seleccionada. | `process`. |
+| `cargo` | Cargo del area; puede incluir personas asignadas. | `area`. |
+
+La interfaz permite crear procesos (cada uno inicia con opciones X e Y), agregar
+areas a la opcion elegida, agregar cargos al area seleccionada y asignar o
+retirar personas de un cargo. La asignacion duplicada de una persona al mismo
+cargo se rechaza. Los datos se mantienen en signals y no persisten al recargar.
 
 Ejemplo de datos compatibles con el adaptador:
 
 ```typescript
 import { buildProcessNodes, Proceso } from './process.model';
 
-const procesos: readonly Proceso[] = [{
-	id: 'compras',
-	parentId: null,
-	titulo: 'Compras',
-	subtitulo: 'Gestion de proveedores',
-	participantes: [{
-		persona: { id: 'ana', nombre: 'Ana Martinez', correo: 'ana@example.com' },
-		cargo: { id: 'lider', nombre: 'Lider de proceso' },
-	}],
-}];
-const nodes = buildProcessNodes(procesos);
+const proceso: Proceso = {
+	id: 'gestion',
+	titulo: 'Gestion empresarial',
+	subtitulo: 'Direccion y estrategia',
+	opciones: [
+		{
+			id: 'X',
+			areas: [{
+				id: 'digital',
+				nombre: 'Digital',
+				cargos: [{
+					id: 'desarrollador',
+					nombre: 'Desarrollador',
+					participantes: [{ id: 'ana', nombre: 'Ana Martinez' }],
+				}],
+			}],
+		},
+		{ id: 'Y', areas: [] },
+	],
+};
+const nodes = buildProcessNodes(proceso, 'X');
 ```
 
-El ejemplo produce dos nodos conectados: `Compras` -> `Ana Martinez` (Lider de proceso).
-Los subprocesos siguen siendo hijos del proceso padre, al mismo nivel que sus
-participantes; las personas no se convierten en padres de los subprocesos.
+El ejemplo produce `Gestion empresarial` -> `Digital` -> `Desarrollador`.
+La opcion Y no forma parte del arreglo de nodos; se pasa al adaptador para
+elegir que rama de negocio representar.
 
-La ruta del import supone un consumidor en `src/app`. El adaptador devuelve
-`OrgNode<ProcessNodeData>[]`. Usa `node.data?.kind` para distinguir:
+El adaptador valida el proceso, las dos opciones, los identificadores unicos,
+las areas, los cargos y las personas. Los IDs visuales son tuplas serializadas
+con `JSON.stringify`, distinguen proceso/area/cargo y evitan colisiones entre
+alternativas. Usa `node.data?.kind` para leer el dato de negocio correspondiente.
 
-- `process`: el proceso completo esta en `node.data.proceso`.
-- `participant`: la asignacion esta en `node.data.participante` y el ID de negocio
-	del proceso propietario en `node.data.procesoId`.
-
-Los IDs visuales son tuplas serializadas con `JSON.stringify`: `['process', id]`
-para procesos y `['participant', procesoId, personaId, cargoId]` para asignaciones.
-Son estables y evitan colisiones cuando la misma persona participa en varios
-procesos o cargos. No uses el ID visual para consultar una API de procesos:
-obtiene el ID de negocio de los datos tipados del nodo.
-
-El adaptador valida titulo/subtitulo, participantes, duplicados y la jerarquia
-antes de generar el arbol mixto. Los ejemplos de empleados siguientes son
-consumidores alternativos del mismo componente, no otro modelo obligatorio.
+La demo independiente tambien usa la jerarquia tipada. En su formulario se
+puede elegir el tipo de nodo; la lista de padres se limita automaticamente a
+procesos al crear un area y a areas al crear un cargo. El modelo visual
+generico sigue sin depender de los modelos de negocio.
 
 #### Contratos de Negocio
 
 | Contrato | Propiedades |
 | --- | --- |
-| `Persona` | `id`, `nombre`, `correo?`. |
-| `Cargo` | `id`, `nombre`. |
-| `Participante` | `persona`, `cargo`: el cargo pertenece a la asignacion. |
-| `Proceso` | `id`, `parentId`, `titulo`, `subtitulo`, `participantes`. |
+| `Persona` | `id`, `nombre`, `correo?`; se guarda dentro de un cargo. |
+| `Cargo` | `id`, `nombre`, `participantes`. |
+| `Area` | `id`, `nombre`, `cargos`. |
+| `ProcesoOpcion` | `id` (`X` o `Y`), `areas`. |
+| `Proceso` | `id`, `titulo`, `subtitulo`, `opciones`. |
 
-`buildProcessNodes(procesos)` genera el arbol mixto sin modificar los procesos.
-`assignParticipant(procesos, procesoId, participante)` devuelve un nuevo arreglo
-validado; rechaza un proceso inexistente o una asignacion repetida.
-Retirar una asignacion se implementa en `ProcessDemo.removeParticipant()`.
-No hay funciones de negocio para editar o eliminar procesos completos todavia;
-no confundas esas operaciones con el CRUD del modelo visual generico.
+`buildProcessNodes(proceso, opcionId)` construye el arbol de una alternativa.
+`addArea`, `addCargo`, `assignParticipant` y `removeParticipant` devuelven
+datos actualizados sin mutar el arreglo original. El adaptador rechaza
+asignaciones repetidas. No hay funciones de negocio para editar o eliminar
+procesos completos todavia; no confundas esas operaciones con el CRUD del
+modelo visual generico.
+
+#### Perfil de Cargo en JSON
+
+El ejemplo [analista-pruebas-requisitos-software-i.json](public/data/perfiles-cargo/analista-pruebas-requisitos-software-i.json)
+representa la informacion de un perfil de cargo basada en el formato P-GH-04-F-01.
+Incluye identificacion del cargo y su area, formacion, conocimientos, experiencia,
+competencias, proposito, decisiones, supervision, responsabilidades, comites,
+sistemas de gestion y riesgos de SST. Los campos que el perfil fuente no informa
+se expresan como `null`; las secciones repetibles usan arreglos.
+
+En el modelo de negocio de la POC, cada registro `Cargo` contiene actualmente
+`id`, `nombre` y `participantes`. Para usar el perfil en un cargo del area, la
+integracion con la API puede agregar una propiedad `perfilCargo` y asignarle el
+contenido de este archivo. El perfil no es un nodo adicional del organigrama:
+el nodo sigue siendo el cargo, y su perfil es informacion de detalle asociada.
+La persistencia y el tipado de este campo no estan implementados en esta POC.
 
 ### Como funciona
 

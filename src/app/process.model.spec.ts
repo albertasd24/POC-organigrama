@@ -1,69 +1,48 @@
-import { assignParticipant, buildProcessNodes, Participante, Proceso } from './process.model';
+import { assignParticipant, buildProcessNodes, Proceso, removeParticipant } from './process.model';
 
 describe('Process model', () => {
-  const participante: Participante = {
-    persona: { id: 'ana', nombre: 'Ana Martinez' },
-    cargo: { id: 'lider', nombre: 'Lider' },
+  const persona = { id: 'ana', nombre: 'Ana Martinez' };
+  const proceso: Proceso = {
+    id: 'gestion', titulo: 'Gestion empresarial', subtitulo: 'Direccion y estrategia',
+    opciones: [
+      { id: 'X', areas: [{ id: 'digital', nombre: 'Digital', cargos: [{ id: 'lider', nombre: 'Lider', participantes: [] }] }] },
+      { id: 'Y', areas: [{ id: 'finanzas', nombre: 'Financiera', cargos: [{ id: 'analista', nombre: 'Analista', participantes: [] }] }] },
+    ],
   };
-  const procesos: readonly Proceso[] = [
-    { id: 'root', parentId: null, titulo: 'Gestion', subtitulo: 'Estrategia', participantes: [] },
-    { id: 'child', parentId: 'root', titulo: 'Compras', subtitulo: 'Abastecimiento', participantes: [] },
-  ];
 
-  it('maps titles, hierarchy and original process data', () => {
-    const nodes = buildProcessNodes(procesos);
-    expect(nodes[1]).toEqual({
-      id: JSON.stringify(['process', 'child']), parentId: nodes[0].id,
-      name: 'Compras', role: 'Abastecimiento', data: { kind: 'process', proceso: procesos[1] },
+  it('builds a process root with areas and cargo children, keeping options out of the tree', () => {
+    const nodes = buildProcessNodes(proceso, 'X');
+    expect(nodes).toHaveLength(3);
+    expect(nodes[0]).toEqual({
+      id: JSON.stringify(['process', 'gestion']), parentId: null,
+      name: 'Gestion empresarial', role: 'Direccion y estrategia',
+      data: { kind: 'process', proceso },
     });
+    expect(nodes[1].data?.kind).toBe('area');
+    expect(nodes[1].parentId).toBe(nodes[0].id);
+    expect(nodes[2].data?.kind).toBe('cargo');
+    expect(nodes[2].parentId).toBe(nodes[1].id);
+    expect(nodes.some((node) => node.name === 'Y')).toBe(false);
+    expect(buildProcessNodes(proceso, 'Y')[1].name).toBe('Financiera');
   });
 
-  it('renders each assignment as a separate child with stable unique IDs', () => {
-    const first = assignParticipant(procesos, 'root', participante);
-    const second = assignParticipant(first, 'child', participante);
-    const assigned = assignParticipant(second, 'child', {
-      ...participante, cargo: { id: 'analista', nombre: 'Analista' },
-    });
-    const nodes = buildProcessNodes(assigned);
-    const people = nodes.filter((node) => node.data?.kind === 'participant');
-    expect(nodes).toHaveLength(5);
-    expect(new Set(nodes.map((node) => node.id)).size).toBe(5);
-    expect(people.map((node) => node.name)).toEqual(['Ana Martinez', 'Ana Martinez', 'Ana Martinez']);
-    expect(people.map((node) => node.role)).toEqual(['Lider', 'Lider', 'Analista']);
-    for (const person of people) {
-      const parent = nodes.find((node) => node.id === person.parentId);
-      expect(parent?.data?.kind).toBe('process');
-      if (person.data?.kind === 'participant' && parent?.data?.kind === 'process') {
-        expect(parent.data.proceso.id).toBe(person.data.procesoId);
-      }
-    }
-    expect(buildProcessNodes(assigned).map((node) => node.id)).toEqual(nodes.map((node) => node.id));
+  it('assigns a person to a cargo without adding a visual node and removes them immutably', () => {
+    const assigned = assignParticipant([proceso], 'gestion', 'X', 'digital', 'lider', persona);
+    const cargo = assigned[0].opciones[0].areas[0].cargos[0];
+    expect(cargo.participantes).toEqual([persona]);
+    expect(buildProcessNodes(assigned[0], 'X')).toHaveLength(3);
+    expect(proceso.opciones[0].areas[0].cargos[0].participantes).toEqual([]);
+    const removed = removeParticipant(assigned, 'gestion', 'X', 'digital', 'lider', 'ana');
+    expect(removed[0].opciones[0].areas[0].cargos[0].participantes).toEqual([]);
   });
 
-  it('assigns without mutating the source and allows participation in different processes', () => {
-    const first = assignParticipant(procesos, 'root', participante);
-    const second = assignParticipant(first, 'child', participante);
-    expect(procesos[0].participantes).toEqual([]);
-    expect(first[1]).toBe(procesos[1]);
-    expect(second.map((proceso) => proceso.participantes.length)).toEqual([1, 1]);
-  });
-
-  it('rejects duplicate assignments but allows a different role for the same person', () => {
-    const assigned = assignParticipant(procesos, 'root', participante);
-    expect(() => assignParticipant(assigned, 'root', participante)).toThrowError(/ya tiene ese cargo/);
-    expect(assignParticipant(assigned, 'root', {
-      ...participante, cargo: { id: 'analista', nombre: 'Analista' },
-    })[0].participantes).toHaveLength(2);
-  });
-
-  it('rejects missing processes, invalid participants, blank titles and invalid hierarchy', () => {
-    expect(() => assignParticipant(procesos, 'missing', participante)).toThrowError(/existente/);
-    expect(() => assignParticipant(procesos, 'root', {
-      ...participante, persona: { id: '', nombre: ' ' },
-    })).toThrowError(/validos/);
-    expect(() => buildProcessNodes([{ ...procesos[0], titulo: ' ' }])).toThrowError(/titulo/);
-    expect(() => buildProcessNodes([{ ...procesos[0], subtitulo: ' ' }])).toThrowError(/subtitulo/);
-    expect(() => buildProcessNodes([{ ...procesos[1], parentId: 'missing' }, procesos[0]]))
-      .toThrowError(/Padre inexistente/);
+  it('rejects duplicate assignments, invalid hierarchy choices and incomplete option sets', () => {
+    const assigned = assignParticipant([proceso], 'gestion', 'X', 'digital', 'lider', persona);
+    expect(() => assignParticipant(assigned, 'gestion', 'X', 'digital', 'lider', persona))
+      .toThrowError(/ya esta asignada/);
+    expect(() => assignParticipant([proceso], 'gestion', 'Y', 'digital', 'lider', persona))
+      .toThrowError(/existentes/);
+    expect(() => buildProcessNodes({ ...proceso, opciones: [proceso.opciones[0]] }, 'X'))
+      .toThrowError(/opciones X e Y/);
   });
 });

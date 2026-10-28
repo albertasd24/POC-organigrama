@@ -1,0 +1,157 @@
+{
+  "id": "perfil-analista-pruebas-requisitos-software-i",
+  "version": 1,
+  "fuente": {
+    "tipo": "perfil-de-cargo",
+    "codigo": "P-GH-04-F-01",
+    "revision": 3,
+    "fechaVigencia": "2023-01-02"
+  },
+  "cargo": {
+    "id": "analista-pruebas-requisitos-software-i",
+    "nombre": "Analista de Pruebas y Requisitos de Software I",
+    "areaProceso": {
+      "id": "centro-tecnologia-digital",
+      "nombre": "Centro de Tecnología Digital"
+    },
+    "reportaA": "Líder de pruebas de software",
+    "rol": "misional",
+    "mision": "Generar, especificar, documentar y formalizar la definición de los requerimientos funcionales y los atributos de calidad, aplicar diferentes técnicas de pruebas de software funcionales que permitan realizar la verificación de las aplicaciones y sistemas de información desarrollados y mantenidos por la organización, siguiendo las metodologías, procesos y estándares de calidad definidos por Digital – Centro de tecnología.",
+    "personalACargo": {
+      "tiene": false,
+      "cantidad": null
+    },
+    "presupuesto": {
+      "maneja": false,
+      "monto": null,
+      "moneda": null
+    },
+    "metaComercial": {
+      "tiene": false,
+      "monto": null,
+      "moneda": null
+    }
+  },
+  "formacion": {
+    "nivelEducativo": "Estudiante de 8 semestre en adelante y/o técnico, tecnólogo en las áreas de Ingeniería de Sistemas o Ingeniería de software, Ingeniería Electrónica, Ingeniería en Telecomunicaciones, Ingeniería Industrial o afines.",
+    "campoEstudio": "Técnico, tecnólogo, profesional de Sistemas o Ingeniería de Software, Ingeniería Electrónica, Ingeniería en Telecomunicaciones, Ingeniería Industrial y/o afines. Participación en proyectos de desarrollo de software realizando actividades de calidad, análisis o pruebas de software."
+  },
+  "conocimientosEspecificos": [
+    { "nombre": "Abstracción de problemas", "nivel": "medio" },
+    { "nombre": "Conceptos de ingeniería de requisitos y/o pruebas", "nivel": "medio" },
+    { "nombre": "Identificación de requerimientos funcionales y no funcionales", "nivel": "medio" },
+    { "nombre": "Especificación de historias de usuario y/o criterios de aceptación", "nivel": "medio" },
+    { "nombre": "Modelado de datos", "nivel": "medio" },
+    { "nombre": "Diagramas de procesos", "nivel": "bajo" },
+    { "nombre": "Diagramas de estado", "nivel": "bajo" },
+    { "nombre": "Diseño y ejecución de casos de prueba", "nivel": "medio" },
+    { "nombre": "Uso de SQL", "nivel": "bajo" },
+    { "nombre": "Planeación de pruebas", "nivel": "opcional" },
+    { "nombre": "Certificación ISTQB", "nivel": "opcional" },
+    { "nombre": "Certificación CMAP", "nivel": "opcional" },
+    { "nombre": "Pruebas automatizadas", "nivel": "opcional" },
+    { "nombre": "Pruebas de desempeño", "nivel": "opcional" },
+    { "nombre": "Pruebas de seguridad", "nivel": "opcional" }
+  ],
+  "equivalencias": [
+    "Se homologa un año y medio de experiencia participando en proyectos de software realizando actividades de desarrollo y con un puntaje de 4 o superior en 6 ítems de la prueba técnica."
+  ],
+  "experienciaLaboral": {
+    "minima": {
+      "cantidad": 1,
+      "unidad": "año"
+    },
+    "descripcion": "Mínimo un año de participación en proyectos de desarrollo de software realizando actividades de calidad, análisis, desarrollo o pruebas de software."
+  },
+  "competencias": [
+    { "nombre": "Aprendizaje", "nivelRequerido": 3 },
+    { "nombre": "Calidad en el Trabajo", "nivelRequerido": 4 },
+    { "nombre": "Ética Organizacional", "nivelRequerido": 6 },
+    { "nombre": "Pensamiento Analítico", "nivelRequerido": 3 },
+    { "nombre": "Resolución de Conflictos", "nivelRequerido": 3 }
+  ],
+  "descripcionCargo": {
+    "propositoPrincipal": [
+      "Identificar, analizar, diseñar y documentar los requerimientos de los productos de software a desarrollar. La mayor parte de las actividades del proyecto de software parten de estos requerimientos.",
+      "Controlar la calidad de las aplicaciones de software y sistemas de información desarrollados por la organización.",
+      "Aplicar las metodologías, procesos y estándares de calidad definidos en la organización."
+    ]
+  },
+  "tomaDecisiones": {
+    "individuales": false,
+    "porConsulta": true,
+    "deGrupo": false,
+    "noTomaDecisiones": false
+  },
+  "supervisionRequerida": {
+    "procedimientos": false,
+    "parametros": true,
+    "politicas": false,
+    "directrices": false
+  },
+  "responsabilidades": {
+    "generales": [
+      "Cumplir con las políticas de los diferentes sistemas de gestión, normas de seguridad de la información, seguridad y salud en el trabajo y demás sistemas de gestión que la organización implemente.",
+      "Asegurar el cumplimiento de los procedimientos y lineamientos determinados por los sistemas de gestión corporativos para la mejora continua.",
+      "Conocer, apropiar, aplicar y desplegar en los procesos de la organización el procedimiento de gestión de cambios establecido.",
+      "Ayudar con la planificación, ejecución y registro del resultado de las auditorías internas y/o externas en la plataforma del Sistema de Gestión de control y calidad definida por la organización.",
+      "Apoyar la estructuración y formalización de las estructuras organizacionales de cada proceso, que apalancan la ejecución de las actividades.",
+      "Hacer seguimiento y control a las actividades, compromisos y planes de trabajo establecidos dentro del proceso y los derivados de la articulación y acompañamiento con los demás procesos y/o proyectos de la organización.",
+      "Realizar las actividades de control inherentes a su cargo.",
+      "Realizar labores inherentes a su cargo de acuerdo con las instrucciones de su jefe inmediato.",
+      "Asistir a las reuniones, comités y capacitaciones a las cuales sea programado.",
+      "Cumplir con las políticas y procedimientos de cada uno de los sistemas de gestión de la compañía."
+    ],
+    "especificas": [
+      "Identificar los requerimientos funcionales y atributos de calidad que aplican para un proyecto, determinando el alcance de la solución.",
+      "Generar cuando sea necesario interfaz gráfica de usuario (GUI), diagramas de procesos, diagramas de estado, modelo conceptual y demás artefactos requeridos para el entendimiento y desarrollo de sistemas de información.",
+      "Diseñar y ejecutar casos de prueba funcionales según el plan de pruebas de los proyectos de desarrollo de software.",
+      "Reportar, realizar seguimiento y gestionar las incidencias encontradas durante la ejecución de las pruebas y actividades de validación de los proyectos de desarrollo de software.",
+      "Controlar y mejorar la calidad de las aplicaciones y sistemas de información desarrollados y mantenidos por la organización, identificando las necesidades y expectativas de los usuarios y clientes y verificando que sean resueltas en las aplicaciones desarrolladas.",
+      "Aplicar el proceso de pruebas en los proyectos de desarrollo y mantenimiento.",
+      "Generar informes de las pruebas de software diseñadas y ejecutadas.",
+      "Acompañar y realizar seguimiento de la validación por parte de los clientes de las aplicaciones desarrolladas y mantenidas por la organización.",
+      "Aplicar, ejecutar y realizar seguimiento de revisiones pares en los proyectos de desarrollo de software.",
+      "Realizar consultas e informes de alternativas tecnológicas y metodológicas conducentes a la creación, innovación y/o mejoramiento de las prácticas de su función y de las aplicaciones y sistemas de información de la organización.",
+      "Notificar oportunamente los incidentes de seguridad que se generen en el proceso.",
+      "Asegurar el uso adecuado de la contraseña, equipo y política del puesto de trabajo despejado y mesa limpia.",
+      "Garantizar la participación a reuniones y/o comités de los funcionarios a cargo que sean miembros activos del COPASST, el Comité de Convivencia y/o el Programa de Brigadistas.",
+      "Cumplir con los procedimientos y lineamientos determinados por el Sistema de Gestión de Seguridad y Salud en el Trabajo.",
+      "Asegurar el cumplimiento de los procedimientos y lineamientos de los sistemas de gestión de Calidad, Seguridad de la Información y Seguridad y Salud en el Trabajo para la mejora continua.",
+      "Garantizar la participación de los funcionarios a cargo en las capacitaciones relacionadas con el Sistema de Seguridad y Salud en el Trabajo.",
+      "Desempeñar las demás funciones que le sean asignadas por el jefe inmediato y las inherentes a su cargo."
+    ]
+  },
+  "comites": {
+    "internos": [
+      {
+        "participa": true,
+        "nombre": "Grupo Primario Centro Tecnología Digital"
+      }
+    ],
+    "externos": {
+      "participa": false,
+      "nombre": null
+    }
+  },
+  "sistemasGestion": {
+    "responsabilidad": "Cumplir las responsabilidades y autoridades del Sistema de Gestión de Seguridad y Salud en el Trabajo, del Sistema de Gestión de Seguridad de la Información y de Continuidad de Negocio, consultando la plataforma Kawak y los manuales correspondientes.",
+    "matricesReferencia": [
+      "Matriz de riesgos y responsabilidades de SG-SST",
+      "Matriz de responsabilidades de SGSI",
+      "Matriz de roles y responsabilidades de SGCN"
+    ]
+  },
+  "saludSeguridadTrabajo": {
+    "riesgos": [
+      { "tipo": "psicosocial", "seleccionado": true },
+      { "tipo": "ergonomico", "seleccionado": true },
+      { "tipo": "fisico", "seleccionado": false },
+      { "tipo": "mecanico", "seleccionado": false },
+      { "tipo": "electrico", "seleccionado": false },
+      { "tipo": "publico", "seleccionado": true },
+      { "tipo": "quimico", "seleccionado": false },
+      { "tipo": "biologico", "seleccionado": true }
+    ]
+  }
+}

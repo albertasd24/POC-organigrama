@@ -26,38 +26,40 @@ describe('OrgChartDemo', () => {
     const fixture = TestBed.createComponent(OrgChartDemo);
     await fixture.whenStable();
     const chart = fixture.debugElement.query(By.directive(OrgChartComponent)).componentInstance as OrgChartComponent;
-    chart.nodeSelected.emit(fixture.componentInstance.nodes()[1]);
+    chart.nodeSelected.emit(fixture.componentInstance.nodes().find((node) => node.id === 'cargo-desarrollo')!);
     await fixture.whenStable();
-    expect(fixture.nativeElement.querySelector('aside dl').textContent).toContain('Carlos Ruiz');
+    expect(fixture.nativeElement.querySelector('aside dl').textContent).toContain('Desarrollador');
+    expect(fixture.nativeElement.querySelector('aside dl').textContent).toContain('Cargo');
     expect(fixture.nativeElement.querySelector('aside dl').textContent).toContain('carlos@example.com');
   });
 
-  it('creates, edits and deletes a node through the consumer form', async () => {
+  it('creates, edits and deletes a cargo under an area through the consumer form', async () => {
     const fixture = TestBed.createComponent(OrgChartDemo);
     await fixture.whenStable();
     const demo = fixture.componentInstance;
     demo.startCreate();
-    demo.form.patchValue({ name: 'Sofia Lopez', role: 'Analista', department: 'Calidad', email: 'sofia@example.com' });
+    demo.form.patchValue({ name: 'Sofia Lopez', role: 'Analista', kind: 'cargo', parentId: 'area-digital', email: 'sofia@example.com' });
     const submit = () => fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     submit();
     await fixture.whenStable();
-    expect(demo.nodes()).toHaveLength(4);
-    expect(demo.selected()?.parentId).toBe('direccion');
+    expect(demo.nodes()).toHaveLength(8);
+    expect(demo.selected()?.parentId).toBe('area-digital');
     demo.form.patchValue({ role: 'Lider de calidad' });
     submit();
     await fixture.whenStable();
     expect(demo.selected()?.role).toBe('Lider de calidad');
     fixture.nativeElement.querySelector('button.danger').click();
     await fixture.whenStable();
-    expect(demo.nodes()).toHaveLength(3);
-    expect(demo.selectedId()).toBe('direccion');
+    expect(demo.nodes()).toHaveLength(7);
+    expect(demo.selectedId()).toBe('area-digital');
   });
 
   it('rejects invalid changes and requires explicit cascade to delete a branch', async () => {
     const fixture = TestBed.createComponent(OrgChartDemo);
     await fixture.whenStable();
     const demo = fixture.componentInstance;
-    demo.form.patchValue({ parentId: 'tecnologia' });
+    demo.selectNode(demo.nodes()[0]);
+    demo.form.patchValue({ kind: 'cargo', parentId: 'proceso' });
     demo.save();
     expect(demo.error()).toBeTruthy();
     expect(demo.nodes()[0].parentId).toBeNull();
@@ -69,9 +71,19 @@ describe('OrgChartDemo', () => {
     expect(demo.nodes()).toHaveLength(0);
     expect(demo.selectedId()).toBeNull();
     expect(demo.creating()).toBe(true);
-    demo.form.patchValue({ name: 'Nueva raiz', role: 'Direccion' });
+    demo.form.patchValue({ name: 'Nuevo proceso', role: 'Direccion', kind: 'process', parentId: '' });
     demo.save();
     expect(demo.nodes()).toHaveLength(1);
     expect(demo.selected()?.parentId).toBeNull();
+  });
+
+  it('offers only parent nodes valid for the selected node type', async () => {
+    const fixture = TestBed.createComponent(OrgChartDemo);
+    await fixture.whenStable();
+    const demo = fixture.componentInstance;
+    demo.startCreate();
+    expect(demo.parentNodes().map((node) => node.data?.kind)).toEqual(['process']);
+    demo.form.controls.kind.setValue('cargo');
+    expect(demo.parentNodes().every((node) => node.data?.kind === 'area')).toBe(true);
   });
 });

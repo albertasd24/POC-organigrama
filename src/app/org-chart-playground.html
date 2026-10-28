@@ -1,8 +1,8 @@
 <header>
   <a routerLink="/">Procesos</a>
-  <h1>Organigrama</h1>
+  <h1>Demo de tipos de nodo</h1>
   <div class="actions">
-    <output>{{ nodes().length }} nodos</output>
+    <output>{{ nodes().length }} nodos: proceso, areas y cargos</output>
     <button type="button" title="Restablecer datos" aria-label="Restablecer datos" (click)="reset()"><svg lucideRotateCcw aria-hidden="true"></svg></button>
     <button type="button" (click)="startCreate()"><svg lucidePlus aria-hidden="true"></svg>Nuevo nodo</button>
   </div>
@@ -16,9 +16,10 @@
     @if (!creating()) {
       @if (selected(); as node) {
         <dl>
+          <dt>Tipo</dt><dd>{{ kindLabel(node.data?.kind) }}</dd>
           <dt>Nombre</dt><dd>{{ node.name }}</dd>
-          <dt>Cargo</dt><dd>{{ node.role }}</dd>
-          <dt>Area</dt><dd>{{ node.data?.department || '-' }}</dd>
+          <dt>Descripcion</dt><dd>{{ node.role }}</dd>
+          <dt>Padre</dt><dd>{{ parentName(node) }}</dd>
           <dt>Correo</dt><dd>{{ node.data?.email || '-' }}</dd>
           <dt>ID</dt><dd>{{ node.id }}</dd>
         </dl>
@@ -26,16 +27,20 @@
     }
     <form [formGroup]="form" (ngSubmit)="save()">
       <label for="node-name">Nombre<input id="node-name" formControlName="name" required maxlength="80"></label>
-      <label for="node-role">Cargo<input id="node-role" formControlName="role" required maxlength="100"></label>
-      <label for="node-parent">Nodo padre
-        <select id="node-parent" formControlName="parentId">
-          <option value="">Sin padre (raiz)</option>
-          @for (node of nodes(); track node.id) {
-            @if (creating() || node.id !== selectedId()) { <option [value]="node.id">{{ node.name }}</option> }
-          }
+      <label for="node-role">Descripcion o cargo<input id="node-role" formControlName="role" required maxlength="100"></label>
+      <label for="node-kind">Tipo de nodo
+        <select id="node-kind" formControlName="kind" (change)="typeChanged()">
+          @if (!creating() || !nodes().length) { <option value="process">Proceso</option> }
+          <option value="area">Area</option>
+          <option value="cargo">Cargo</option>
         </select>
       </label>
-      <label for="node-area">Area<input id="node-area" formControlName="department" maxlength="80"></label>
+      <label for="node-parent">Padre
+        <select id="node-parent" formControlName="parentId">
+          @if (form.controls.kind.value === 'process') { <option value="">Sin padre (raiz)</option> }
+          @for (node of parentNodes(); track node.id) { <option [value]="node.id">{{ node.name }}</option> }
+        </select>
+      </label>
       <label for="node-email">Correo<input id="node-email" formControlName="email" type="email" maxlength="160"></label>
       @if (error()) { <p role="alert" class="error">{{ error() }}</p> }
       <button type="submit" class="primary"><svg lucideSave aria-hidden="true"></svg>{{ creating() ? 'Crear nodo' : 'Guardar cambios' }}</button>
