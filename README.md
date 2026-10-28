@@ -1,8 +1,293 @@
-# POCOrganigrama
+# POC de Organigrama Reutilizable
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.10.
+Prueba de concepto en Angular para representar jerarquias con `d3-org-chart`,
+seleccionar nodos y administrar sus datos desde componentes consumidores.
+Incluye un componente visual generico, funciones puras para operaciones CRUD
+y dos pantallas de ejemplo: procesos con participantes y un editor independiente.
 
-## Organigrama reutilizable
+**Estado:** POC funcional. El codigo reutilizable esta dentro de la aplicacion;
+todavia no es un paquete Angular publicado. No requiere Storybook ni un backend.
+
+## Contenido
+
+- [Alcance y limites](#alcance-y-limites)
+- [Stack tecnico](#stack-tecnico)
+- [Instalacion y ejecucion](#instalacion-y-ejecucion)
+- [Instalar y configurar d3-org-chart](#instalar-y-configurar-d3-org-chart)
+- [Arquitectura y archivos](#arquitectura-y-archivos)
+- [Componente reutilizable](#componente-reutilizable)
+- [Demo independiente](#demostracion-independiente-sin-storybook)
+- [API publica](#api-publica)
+- [Procesos y participantes](#ejemplo-implementado-procesos-y-participantes)
+- [Integracion con una API](#adaptar-un-modelo-de-api)
+- [Funciones CRUD](#funciones-auxiliares)
+- [Personalizacion de datos y vistas](#guia-de-personalizacion-donde-modificar)
+- [SSR y despliegue](#ssr-y-despliegue)
+- [Pruebas y verificaciones](#pruebas-y-verificaciones)
+- [Seguridad y accesibilidad](#seguridad-y-accesibilidad)
+- [Solucion de problemas](#solucion-de-problemas)
+- [Evolucion hacia una biblioteca](#evolucion-hacia-una-biblioteca)
+
+## Alcance y Limites
+
+| Implementado | Detalle |
+| --- | --- |
+| Componente generico | `OrgChartComponent<T>` recibe datos, configura tarjetas y emite seleccion. |
+| Jerarquia validada | IDs unicos, una raiz, padres existentes y ausencia de ciclos. Lista vacia permitida. |
+| CRUD inmutable | Funciones para crear, editar y eliminar nodos; borrado de ramas con cascada explicita. |
+| Navegacion del grafico | Zoom, ajuste, expansion y contraccion. |
+| Seleccion y detalle | Panel lateral en la demo generica y detalle del proceso en la pantalla principal. |
+| Modelo de negocio separado | Adaptador de procesos, personas y cargos al contrato visual. |
+| Renderizado compatible con SSR | La estructura Angular se renderiza sin D3; el grafico se inicializa en el navegador. |
+| Alternativa al SVG | Directorio con botones seleccionables mediante teclado. |
+
+No estan implementados: persistencia, servicios HTTP de negocio, autenticacion,
+autorizacion, arrastrar para cambiar de padre, exportacion, virtualizacion,
+plantillas Angular dentro de las tarjetas ni publicacion npm de la biblioteca.
+La pantalla de procesos permite crear procesos y administrar asignaciones;
+el CRUD generico completo se demuestra en `/demo/org-chart`.
+
+Los datos viven en memoria: navegar entre pantallas o recargar puede recrear
+los ejemplos. No se garantiza rendimiento para un volumen concreto de nodos;
+debe medirse con los datos del sistema destino.
+
+## Stack Tecnico
+
+Versiones declaradas en [package.json](package.json), no necesariamente las
+versiones exactas resueltas en cada instalacion:
+
+| Tecnologia | Version declarada | Responsabilidad |
+| --- | --- | --- |
+| Angular / Router / Forms | `^21.2.0` | Componentes standalone, signals, rutas y formularios reactivos. |
+| Angular CLI / Build / SSR | `^21.2.10` | Desarrollo, compilacion, prerenderizado y servidor Angular. |
+| TypeScript | `~5.9.2` | Contratos genericos y comprobacion estatica. |
+| d3-org-chart | `^3.1.1` | Distribucion y renderizado de la jerarquia. |
+| @lucide/angular | `^1.61.0` | Iconos de los controles. |
+| Tailwind CSS | `^4.1.12` | Pantalla de procesos y estilos globales. |
+| Express | `^5.1.0` | Servidor de la compilacion SSR. |
+| Vitest / jsdom | `^4.0.8` / `^28.0.0` | Pruebas unitarias y de integracion de componentes. |
+
+El proyecto declara `npm@11.12.1` como gestor. Para un entorno nuevo, utiliza
+una version de Node compatible con Angular 21, por ejemplo Node 22 desde
+`22.12.0` o Node 24. Los tipos `@types/node` no fijan la version del runtime.
+
+## Instalacion y Ejecucion
+
+Desde la carpeta del repositorio:
+
+```bash
+npm install
+npm start
+```
+
+El repositorio incluye [package-lock.json](package-lock.json). Usa `npm ci`
+en CI o para una instalacion reproducible cuando este sincronizado con
+[package.json](package.json). No necesitas instalar Angular CLI globalmente.
+
+| URL local por defecto | Pantalla |
+| --- | --- |
+| http://localhost:4200/ | Procesos, participantes y cargos. |
+| http://localhost:4200/demo/org-chart | Demo generica con CRUD y panel lateral. |
+
+Para usar otro puerto:
+
+```bash
+npm start -- --port 4202
+```
+
+En ese caso la demo queda en **http://localhost:4202/demo/org-chart**.
+El servidor de desarrollo recompila al cambiar los archivos.
+
+### Comandos Disponibles
+
+| Comando | Uso |
+| --- | --- |
+| `npm start` | Servidor Angular de desarrollo. |
+| `npm run build` | Compilacion de produccion de navegador y servidor. |
+| `npm run watch` | Compilacion continua en configuracion de desarrollo; no inicia un servidor web. |
+| `npm test` | Ejecucion de pruebas con el comportamiento interactivo del runner. |
+| `npm test -- --watch=false` | Ejecucion de pruebas una sola vez. |
+| `npm run serve:ssr:POC_organigrama` | Servir una compilacion existente mediante Node y Express. |
+| `npm run ng -- generate component nombre` | Generar un componente con el CLI local. |
+
+## Instalar y Configurar d3-org-chart
+
+`d3-org-chart` es la libreria externa que dibuja el organigrama. No debe
+confundirse con `OrgChartComponent`, que es el componente Angular de esta POC
+y agrega entradas tipadas, seleccion, controles y validacion de la jerarquia.
+
+### 1. Instalar las Dependencias
+
+**En este repositorio**, basta con ejecutar `npm install` o `npm ci`: las
+dependencias ya estan declaradas. No necesitas repetir la instalacion manual.
+
+**En otro proyecto Angular**, desde su carpeta raiz, instala la libreria y
+los tipos usados por esta POC:
+
+```bash
+npm install "d3-org-chart@^3.1.1"
+npm install --save-dev "@types/d3-org-chart@^3.1.2" "@types/d3@^7.4.3"
+```
+
+El primer paquete se utiliza en ejecucion; los paquetes `@types` proporcionan
+declaraciones para TypeScript y no contienen el motor de renderizado.
+Estas versiones reproducen los rangos declarados en la POC, no una garantia
+de compatibilidad con cualquier version futura de Angular o de la libreria.
+
+Si reutilizas tambien el componente completo de esta POC, instala sus iconos:
+
+```bash
+npm install "@lucide/angular@^1.61.0"
+```
+
+No hace falta agregar scripts CDN ni registrar D3 en `scripts` de
+[angular.json](angular.json). Esta integracion usa modulos npm y carga dinamica.
+Tampoco necesitas instalar el paquete `d3` por separado para usar el codigo
+actual; si escribes imports directos desde `d3`, declaralo como dependencia
+directa de tu propio proyecto.
+
+### 2. Integrar el Componente Angular
+
+Para trasladar el componente a otra aplicacion, copia la carpeta
+[src/app/org-chart](src/app/org-chart), conservando el archivo TypeScript,
+la plantilla, los estilos, el modelo y su punto de exportacion.
+No copies los modelos de procesos si no los necesitas. El chart tiene estilos
+propios: Tailwind no es un requisito para su barra, directorio o tarjetas.
+
+Ejemplo de un consumidor situado en `src/app`, con la carpeta copiada al mismo nivel:
+
+```typescript
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { OrgChartComponent, OrgNode } from './org-chart';
+
+@Component({
+	selector: 'app-mi-organigrama',
+	imports: [OrgChartComponent],
+	template: `
+		<app-org-chart
+			[nodes]="nodes()"
+			[nodeWidth]="280"
+			[nodeHeight]="140"
+			[height]="560"
+			[selectedNodeId]="selected()?.id ?? null"
+			(nodeSelected)="selected.set($event)"
+		/>
+		@if (selected(); as node) {
+			<aside aria-label="Detalle del nodo">
+				<h2>{{ node.name }}</h2>
+				<p>{{ node.role }}</p>
+			</aside>
+		}
+	`,
+	changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class MiOrganigrama {
+	readonly nodes = signal<readonly OrgNode[]>([
+		{ id: 'direccion', parentId: null, name: 'Direccion', role: 'Estrategia' },
+		{ id: 'equipo', parentId: 'direccion', name: 'Equipo tecnico', role: 'Desarrollo' },
+	]);
+	readonly selected = signal<OrgNode | null>(null);
+}
+```
+
+Registra este consumidor en una ruta o importalo en el componente que lo
+muestre. No necesitas proveedores especiales para D3 ni un NgModule de la
+libreria. La seleccion del ejemplo es suficiente para datos fijos; para un
+editor, conserva el ID y deriva el nodo con `computed`, como hace la demo.
+
+### 3. Entender la Configuracion Interna de D3
+
+La integracion ya esta implementada en
+[src/app/org-chart/org-chart.ts](src/app/org-chart/org-chart.ts).
+No crees una segunda instancia de D3 sobre el mismo contenedor.
+
+| Punto de configuracion | Implementacion y motivo |
+| --- | --- |
+| Tipado | `import type { OrgChart as D3OrgChart } from 'd3-org-chart'` permite tipar la instancia sin ejecutar la libreria al importar el componente. |
+| Carga en navegador | `afterNextRender()` inicia `initialize()`, que ejecuta `await import('d3-org-chart')`. D3 no se inicializa durante SSR. |
+| Contenedor | `viewChild` obtiene el `<div #chartHost>`; `initialize()` le asigna un ID unico y lo conecta mediante `.container(...)`. Esto separa varias instancias en una pagina. |
+| Instancia | `new OrgChart<OrgNode<T>>()` crea el motor del grafico. |
+| Animacion | `.duration(0)` desactiva las transiciones en esta POC. Cambia ese valor en `initialize()` si necesitas otra duracion. |
+| Expansion inicial | `.initialExpandLevel(3)` configura los niveles visibles al cargar. |
+| Dimensiones | El `effect` traduce `nodeWidth`, `nodeHeight` y `height` a `.nodeWidth(...)`, `.nodeHeight(...)` y `.svgHeight(...)`. |
+| Tarjetas | `.nodeContent(...)` llama al renderizador del componente; devuelve HTML construido con `createElement` y `textContent`. |
+| Clic | `.onNodeClick(...)` recupera el nodo original por ID y emite `nodeSelected`. |
+| Datos | `.data(nodes.map(node => ({ ...node }))).render()` entrega copias superficiales a D3 para no modificar los nodos originales. |
+| Destruccion | `DestroyRef.onDestroy()` llama a `clear()` y vacia el contenedor. |
+
+Las propiedades `id` y `parentId` del contrato ya coinciden con la jerarquia
+esperada por esta integracion. Para datos con otros nombres, usa
+`buildOrgNodes` como adaptador en lugar de modificar la libreria instalada.
+Valida una sola raiz, padres existentes e IDs unicos antes de renderizar.
+
+Para actualizar el grafico, cambia el signal con `nodes.set(...)` o
+`nodes.update(...)`, devolviendo otro arreglo. El componente ejecuta `render()`
+por ti; no necesitas buscar el SVG ni redibujarlo desde el consumidor.
+
+### 4. Comprobar la Integracion
+
+En esta POC, ejecuta:
+
+```bash
+npm start
+```
+
+Abre **http://localhost:4200/demo/org-chart** y verifica que aparecen los nodos,
+que los controles de zoom funcionan y que un clic actualiza el panel lateral.
+Despues ejecuta `npm run build` para comprobar tambien la compilacion SSR.
+
+Si integras el componente en otra aplicacion:
+
+- **No encuentra el modulo o sus tipos:** comprueba `npm ls d3-org-chart @types/d3-org-chart @types/d3` y que instalaste las dependencias en la raiz correcta. No ocultes el problema declarando el modulo como `any`.
+- **Error de `document` o `window` durante SSR:** evita imports de ejecucion e inicializacion de D3 en el ambito global; conserva la carga dinamica dentro de `afterNextRender()`.
+- **Grafico vacio o recortado:** comprueba el ancho del contenedor, el input `height`, los datos y la jerarquia; prueba el control de ajustar a pantalla. Un arreglo vacio es un estado permitido.
+- **Las tarjetas no muestran nuevas propiedades:** guardar datos no los presenta automaticamente; configura `cardFields` o `nodeContent()` segun la [guia de personalizacion](#guia-de-personalizacion-donde-modificar).
+
+## Arquitectura y Archivos
+
+```mermaid
+flowchart LR
+	Source[Datos locales o futura API] --> Consumer[Componente consumidor]
+	Consumer --> Adapter[Adaptador y validacion]
+	Adapter --> State[Estado inmutable con signals]
+	State --> Chart[OrgChartComponent]
+	Chart --> D3[d3-org-chart en navegador]
+	Chart --> Directory[Directorio accesible]
+	Chart --> Selection[nodeSelected]
+	Selection --> Consumer
+	Consumer --> Detail[Detalle y formularios]
+```
+
+| Archivo | Responsabilidad actual |
+| --- | --- |
+| [src/app/app.ts](src/app/app.ts) | `App` aloja el router; `ProcessDemo` contiene la pantalla y el estado de procesos. Ambas clases estan actualmente en este archivo. |
+| [src/app/app.routes.ts](src/app/app.routes.ts) | Rutas `/` y `/demo/org-chart`, con carga mediante `loadComponent`. |
+| [src/app/app.config.ts](src/app/app.config.ts) | Configuracion del router e hidratacion con repeticion de eventos. |
+| [src/app/process.model.ts](src/app/process.model.ts) | Contratos de negocio, adaptacion y validacion de asignaciones. |
+| [src/app/org-chart-demo.html](src/app/org-chart-demo.html) | Plantilla de procesos. Pese a su nombre, no es la demo generica. |
+| [src/app/org-chart-demo.ts](src/app/org-chart-demo.ts) | Consumidor generico: estado, seleccion, formulario y CRUD. |
+| [src/app/org-chart-playground.html](src/app/org-chart-playground.html) | Plantilla del editor generico y panel lateral. |
+| [src/app/org-chart-playground.css](src/app/org-chart-playground.css) | Layout responsive de ese editor. |
+| [src/app/org-chart/index.ts](src/app/org-chart/index.ts) | Punto de exportacion del codigo reutilizable. |
+| [src/app/org-chart/org-chart.model.ts](src/app/org-chart/org-chart.model.ts) | Contrato `OrgNode<T>` y operaciones puras sobre la jerarquia. |
+| [src/app/org-chart/org-chart.ts](src/app/org-chart/org-chart.ts) | Componente visual, ciclo de vida de D3 y renderizado de tarjetas. |
+| [src/app/org-chart/org-chart.html](src/app/org-chart/org-chart.html) | Lienzo, controles, estados y directorio. |
+| [src/app/org-chart/org-chart.css](src/app/org-chart/org-chart.css) | Estilos propios del componente reutilizable. |
+| [src/app/app.routes.server.ts](src/app/app.routes.server.ts) | Politica de renderizado de rutas en el servidor. |
+| [src/server.ts](src/server.ts) | Servidor Express y manejador Angular SSR. |
+| [angular.json](angular.json) | Targets, assets, SSR y presupuestos de compilacion. |
+
+La separacion es intencional: el chart no consulta APIs, no conoce procesos,
+no persiste cambios y no incorpora el formulario ni el panel. El consumidor
+decide como obtener, validar y guardar sus datos de negocio.
+
+## Componente Reutilizable
+
+El punto de entrada local es [src/app/org-chart/index.ts](src/app/org-chart/index.ts).
+Exporta `OrgChartComponent`, los tipos `OrgNode` y `OrgCardField`, y las funciones
+`buildOrgNodes`, `validateOrgNodes`, `addOrgNode`, `updateOrgNode` y `removeOrgNode`.
+No hay un nombre de paquete instalable propio ni un proyecto Angular de tipo
+biblioteca configurado todavia.
 
 ### Demostracion independiente (sin Storybook)
 
@@ -40,12 +325,83 @@ Importa desde `./org-chart` en un consumidor situado en `src/app`:
 import { OrgChartComponent, OrgNode, addOrgNode, updateOrgNode, removeOrgNode } from './org-chart';
 ```
 
-Agrega `OrgChartComponent` a `imports`. Sus entradas son `nodes` (obligatoria),
-`cardFields` (filas adicionales), `selectedNodeId` (resaltado), `nodeWidth`
-(240), `nodeHeight` (112) y `height` (580), con dimensiones en pixeles.
-Emite `nodeSelected: OrgNode<T>`. Los metodos publicos `fit()`, `zoomIn()`,
-`zoomOut()`, `expandAll()` y `collapseAll()` controlan la vista; no cambian
-los datos. Los controles integrados ya invocan estos metodos.
+Agrega `OrgChartComponent` a `imports` del componente standalone consumidor.
+
+| Entrada | Tipo | Valor inicial | Uso |
+| --- | --- | --- | --- |
+| `nodes` | `readonly OrgNode<T>[]` | Obligatoria | Jerarquia que se representa. |
+| `cardFields` | `(node: OrgNode<T>) => readonly OrgCardField[]` | `() => []` | Filas adicionales de tarjeta y directorio. |
+| `selectedNodeId` | `string \| null` | `null` | ID que se resalta; el consumidor controla la seleccion. |
+| `nodeWidth` | `number` | `240` | Ancho comun de las tarjetas, en pixeles. |
+| `nodeHeight` | `number` | `112` | Alto comun de las tarjetas, en pixeles. |
+| `height` | `number` | `580` | Alto del lienzo, en pixeles. |
+
+Proporciona dimensiones positivas; el componente no aplica una validacion
+especifica de estos numeros. `nodeSelected` emite `OrgNode<T>` con el nodo
+original seleccionado, tanto desde el SVG como desde el directorio.
+El evento no cambia por si solo `selectedNodeId`: conecta ambos en el consumidor.
+
+Los metodos publicos `fit()`, `zoomIn()`, `zoomOut()`, `expandAll()` y
+`collapseAll()` controlan la vista; no modifican los datos. Los botones
+integrados ya los invocan. Si necesitas controles externos, usa una referencia
+de plantilla al componente, por ejemplo `#chart` y `(click)="chart.fit()"`.
+
+#### Contrato de Nodo
+
+```typescript
+export interface OrgNode<T = unknown> {
+	readonly id: string;
+	readonly parentId: string | null;
+	readonly name: string;
+	readonly role: string;
+	readonly data?: T;
+}
+```
+
+`id` identifica el nodo visual; `parentId: null` identifica la raiz.
+`name` y `role` son los textos principales. `data` transporta el modelo de
+negocio sin obligar al chart a conocerlo. No se clona profundamente: tratala
+como inmutable junto con el arreglo de nodos.
+
+#### Integracion Minima
+
+Ejemplo completo de consumidor situado en la carpeta de la aplicacion:
+
+```typescript
+import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { OrgChartComponent, OrgNode } from './org-chart';
+
+interface TeamData {
+	readonly department: string;
+}
+
+@Component({
+	selector: 'app-team-chart',
+	imports: [OrgChartComponent],
+	changeDetection: ChangeDetectionStrategy.OnPush,
+	template: `
+		<app-org-chart
+			[nodes]="nodes()"
+			[selectedNodeId]="selectedId()"
+			(nodeSelected)="selectedId.set($event.id)"
+		/>
+		@if (selected(); as node) {
+			<aside aria-label="Detalle del nodo">
+				<h2>{{ node.name }}</h2>
+				<p>{{ node.data?.department }}</p>
+			</aside>
+		}
+	`,
+})
+export class TeamChart {
+	readonly nodes = signal<readonly OrgNode<TeamData>[]>([
+		{ id: 'direccion', parentId: null, name: 'Ana', role: 'Directora', data: { department: 'Direccion' } },
+		{ id: 'equipo', parentId: 'direccion', name: 'Carlos', role: 'Analista', data: { department: 'Producto' } },
+	]);
+	readonly selectedId = signal<string | null>(null);
+	readonly selected = computed(() => this.nodes().find(node => node.id === this.selectedId()));
+}
+```
 
 Ejemplo de conexion con tu propio panel:
 
@@ -127,21 +483,24 @@ procesos o cargos. No uses el ID visual para consultar una API de procesos:
 obtiene el ID de negocio de los datos tipados del nodo.
 
 El adaptador valida titulo/subtitulo, participantes, duplicados y la jerarquia
-antes de generar el arbol mixto. Los ejemplos de empleados siguientes siguen siendo
-validos para consumir el componente generico, pero ya no son el demo inicial.
-La ruta tecnica posterior es una propuesta de evolucion, no una libreria
-publicada ni una estructura de carpetas ya extraida.
+antes de generar el arbol mixto. Los ejemplos de empleados siguientes son
+consumidores alternativos del mismo componente, no otro modelo obligatorio.
 
-La pantalla inicial incluye una demostracion de `d3-org-chart` con Tailwind CSS.
-Permite agregar colaboradores, seleccionar nodos, ampliar, reducir, ajustar,
-expandir y contraer la jerarquia. Los cambios del ejemplo viven en memoria;
-no se guardan en un servidor.
+#### Contratos de Negocio
 
-- `src/app/org-chart/org-chart.model.ts`: contrato generico `OrgNode<T>` y funciones puras.
-- `src/app/org-chart/org-chart.ts`: componente standalone con carga de D3 solo en navegador.
-- `src/app/org-chart/org-chart.html`: controles y directorio accesible.
-- `src/app/app.ts`: adaptacion de datos y ejemplo de actualizacion con signals.
-- `src/app/org-chart-demo.html`: formulario y pantalla de ejemplo con Tailwind.
+| Contrato | Propiedades |
+| --- | --- |
+| `Persona` | `id`, `nombre`, `correo?`. |
+| `Cargo` | `id`, `nombre`. |
+| `Participante` | `persona`, `cargo`: el cargo pertenece a la asignacion. |
+| `Proceso` | `id`, `parentId`, `titulo`, `subtitulo`, `participantes`. |
+
+`buildProcessNodes(procesos)` genera el arbol mixto sin modificar los procesos.
+`assignParticipant(procesos, procesoId, participante)` devuelve un nuevo arreglo
+validado; rechaza un proceso inexistente o una asignacion repetida.
+Retirar una asignacion se implementa en `ProcessDemo.removeParticipant()`.
+No hay funciones de negocio para editar o eliminar procesos completos todavia;
+no confundas esas operaciones con el CRUD del modelo visual generico.
 
 ### Como funciona
 
@@ -149,10 +508,10 @@ no se guardan en un servidor.
 2. `buildOrgNodes` transforma esos registros al contrato `OrgNode<T>` y valida la jerarquia.
 3. Un `signal` conserva los nodos. La plantilla los envia mediante `[nodes]`.
 4. `OrgChartComponent` importa D3 despues del primer renderizado del navegador. No intenta acceder al DOM durante SSR.
-5. Un `effect` observa los nodos, las dimensiones y `cardFields`; configura D3 y vuelve a dibujar cuando cambian.
+5. Un `effect` observa los nodos, las dimensiones, `cardFields` y `selectedNodeId`; configura D3 y vuelve a dibujar cuando cambian.
 6. D3 recibe copias superficiales de los nodos para agregar sus campos internos sin modificar los originales. `data` conserva su referencia: tratarlo como inmutable.
 7. Al seleccionar una tarjeta se emite `nodeSelected` con el nodo original y sus datos tipados.
-8. Al destruir el componente se limpia el grafico y su listener de redimensionamiento.
+8. Al destruir el componente se llama a `clear()` de D3 y se vacia su contenedor. Si la importacion termina despues de la destruccion, no se inicializa el grafico.
 
 El formulario pertenece a la demostracion, no al componente reutilizable.
 Puedes usar `app-org-chart` en otra pantalla sin incluir el formulario.
@@ -176,6 +535,17 @@ const nodes = signal(buildOrgNodes(employees, (employee: Employee) => ({
 	data: employee,
 })));
 ```
+
+Este fragmento presupone que `employees` ya contiene la respuesta validada.
+Si usas HTTP, configura `provideHttpClient()` y un servicio consumidor; ese
+servicio no esta incluido en esta POC. Separa el estado de carga/error HTTP del
+estado de carga de D3. El cambio de una API debe resolverse en el adaptador,
+no dentro de `OrgChartComponent`.
+
+Para persistir CRUD, implementa las llamadas a tu backend en el consumidor.
+Valida la respuesta y reemplaza el estado con la version confirmada por el
+servidor, o define una estrategia explicita de actualizacion optimista y rollback.
+Las funciones locales no realizan peticiones ni garantizan consistencia entre usuarios.
 
 Importar `OrgChartComponent` en `imports` del componente consumidor y
 `buildOrgNodes`, `addOrgNode`, `OrgNode` desde el archivo del modelo.
@@ -213,6 +583,16 @@ nodes.update(current => removeOrgNode(current, id, { cascade: true }));
 Los IDs y `parentId` son cadenas; convertir IDs numericos en el adaptador.
 Al actualizar datos desde HTTP, llamar a `nodes.set(buildOrgNodes(response, mapNode))`.
 Reemplazar el arreglo en lugar de mutarlo para activar la actualizacion del componente.
+
+Las funciones lanzan `Error` si la operacion no es valida; captura el error en
+el consumidor para mostrar su mensaje. Si una funcion lanza dentro de
+`nodes.update(...)`, no se asigna el resultado y se conserva el estado anterior.
+Eliminar una hoja raiz deja una lista vacia valida; eliminar una raiz con hijos
+requiere cascada. Cambiar de padre se hace con `updateOrgNode`, no arrastrando.
+
+La validacion generica no exige `name` y `role` no vacios ni valida el contenido
+de `data` en runtime: esas reglas corresponden al formulario o al adaptador.
+Los tipos de TypeScript no sustituyen la validacion de una respuesta HTTP.
 
 ### Guia de personalizacion: donde modificar
 
@@ -486,7 +866,95 @@ npm test -- --watch=false
 npm run build
 ```
 
-### Error: app-org-chart is not a known element
+## SSR y Despliegue
+
+[angular.json](angular.json) configura `outputMode: server`, una entrada de
+navegador y otra de servidor. [src/app/app.routes.server.ts](src/app/app.routes.server.ts)
+declara `RenderMode.Prerender` para todas las rutas actuales. El build genera
+HTML inicial para `/` y `/demo/org-chart`, junto con bundles de navegador y servidor.
+
+En el servidor no se instancia D3: `afterNextRender()` realiza la importacion
+dinamica en el navegador. La hidratacion Angular recupera la interfaz y D3
+dibuja el grafico. El HTML inicial puede mostrar el estado de carga y el
+directorio, no una captura SVG ya renderizada del organigrama.
+
+### Compilar y Servir
+
+```bash
+npm run build
+npm run serve:ssr:POC_organigrama
+```
+
+Salida: `dist/POC_organigrama/browser` y `dist/POC_organigrama/server`.
+El servidor usa el puerto **4000** por defecto; la demo estara en
+**http://localhost:4000/demo/org-chart**.
+
+Para elegir otro puerto en PowerShell:
+
+```powershell
+$env:PORT = '4202'
+npm run serve:ssr:POC_organigrama
+```
+
+El servidor compilado **no recarga cambios de codigo**. Repite el build y
+reinicialo despues de cambiar la aplicacion. Para editar, usa `npm start`.
+La variable `PORT` configura el servidor Express; para `ng serve` usa `--port`.
+
+### Consideraciones de Produccion
+
+- Conserva los artefactos de navegador y servidor con sus rutas relativas.
+- Configura HTTPS, proxy inverso y variables de entorno en la plataforma de destino.
+- Verifica que abrir directamente `/demo/org-chart` funciona, no solo navegar desde `/`.
+- Si despliegas solo archivos estaticos, configura el hosting para las rutas prerenderizadas; no asumas que copiar cualquier archivo HTML conserva el comportamiento del router.
+- Antes de incorporar datos privados al prerenderizado, define que puede quedar en el HTML generado. No publiques datos sensibles en un build estatico.
+- Al agregar rutas con parametros o datos por usuario, revisa la politica `Prerender` y decide si necesitan SSR por peticion o renderizado cliente.
+
+Los presupuestos de produccion actuales son 500 kB de aviso y 1 MB de error
+para el bundle inicial; 4 kB y 8 kB para estilos de cada componente.
+Son umbrales de compilacion, no garantias de tiempo de carga ni rendimiento.
+
+## Pruebas y Verificaciones
+
+El target de pruebas usa `@angular/build:unit-test` y Vitest con jsdom.
+
+| Archivo | Escenarios principales |
+| --- | --- |
+| [src/app/org-chart/org-chart.model.spec.ts](src/app/org-chart/org-chart.model.spec.ts) | Adaptacion, inmutabilidad, IDs, raices, padres, ciclos, edicion y borrado en cascada. |
+| [src/app/process.model.spec.ts](src/app/process.model.spec.ts) | Adaptador de negocio y reglas de asignaciones. |
+| [src/app/app.spec.ts](src/app/app.spec.ts) | Pantalla de procesos, directorio, creacion, asignacion y seleccion. |
+| [src/app/org-chart-demo.spec.ts](src/app/org-chart-demo.spec.ts) | Rutas, evento de seleccion, panel lateral, CRUD y proteccion de ramas. |
+
+```bash
+npm test -- --watch=false
+npm run build
+```
+
+Las pruebas DOM no sustituyen una comprobacion del SVG real en navegador.
+Como verificacion manual, abre ambas rutas, selecciona tarjetas y elementos
+del directorio, usa los controles de vista y prueba crear, editar, borrar una
+hoja y borrar una rama. Comprueba tambien una anchura movil y la navegacion
+por teclado. La demo ubica el panel debajo del grafico hasta 900 px.
+
+No hay un target E2E, una suite Playwright, un script de lint ni un umbral de
+cobertura configurados en el proyecto. No se debe presentar `ng e2e` como
+un comando funcional sin incorporar antes un runner y su configuracion.
+
+## Seguridad y Accesibilidad
+
+- Los textos externos de las tarjetas se asignan con `textContent`, no concatenando HTML remoto.
+- Si agregas imagenes o enlaces, valida los protocolos y origenes antes de asignar sus URLs.
+- El lienzo de D3 tiene `aria-hidden="true"`; el directorio Angular proporciona una alternativa de seleccion con botones y `aria-pressed`.
+- Los controles tienen nombres accesibles; errores y estados usan `role="alert"` o `role="status"`.
+- Las comprobaciones de jerarquia son defensivas, pero no constituyen autorizacion ni validacion completa del negocio.
+- No almacenes secretos en el codigo cliente o dentro de `node.data`. La informacion enviada al navegador es inspeccionable.
+
+Estas medidas no equivalen a una certificacion WCAG ni a una auditoria de
+seguridad. No hay una comprobacion automatica de Axe configurada; completa
+las auditorias y pruebas de accesibilidad del producto que incorpore el chart.
+
+## Solucion de Problemas
+
+### app-org-chart is not a known element
 
 `app-org-chart` es un componente Angular, no un Web Component. El componente
 que usa su selector debe importar su clase en el archivo TypeScript y tambien
@@ -510,9 +978,9 @@ La ruta del import debe ser relativa al componente consumidor. En Angular 21
 los componentes son standalone por defecto. Si usas el grafico desde otro
 componente, debes registrarlo tambien en los `imports` de ese consumidor.
 
-En esta aplicacion `App` ya tiene ambos imports y la compilacion de produccion
-y las pruebas pasan. El diagnostico del editor no se reprodujo en el compilador
-de Angular; no se ha verificado aun que desaparezca al reiniciar el editor.
+En esta aplicacion los consumidores son `ProcessDemo` y `OrgChartDemo`;
+`App` solo aloja `RouterOutlet`. El import debe estar en el consumidor que
+contiene `<app-org-chart>`, no solamente en el componente raiz.
 
 Si el error permanece solo en VS Code:
 
@@ -525,297 +993,89 @@ Si el error permanece solo en VS Code:
 No agregues `CUSTOM_ELEMENTS_SCHEMA` ni `NO_ERRORS_SCHEMA`: ocultarian el
 diagnostico sin registrar el componente, y perderias comprobaciones utiles.
 
-## Ruta tecnica: libreria de tarjetas tipadas para organigrama
-
-Esta ruta describe como evolucionar el POC hacia una libreria reutilizable para
-mostrar tarjetas con distintos tipos de datos, por ejemplo:
-
-- `Proceso`: tiene `titulo` y `subtitulo`.
-- Cada `Proceso` tiene personas asignadas con distintos cargos.
-
-Objetivo: separar dominio, adaptadores y presentacion para que puedas conectar
-distintas APIs sin reescribir el componente visual.
-
-### 1) Estructura recomendada de la libreria
-
-Dentro de `src/app/org-chart/` (o en una libreria de `projects/` si luego la
-separas), usar una estructura por responsabilidades:
-
-```text
-org-chart/
-  model/
-    org-node.model.ts
-    process.model.ts
-    person.model.ts
-    role.model.ts
-  adapters/
-    process-to-org-node.adapter.ts
-    employee-to-org-node.adapter.ts
-  rendering/
-    card-field.model.ts
-    card-renderer.types.ts
-    default-card-renderer.ts
-  state/
-    org-chart.store.ts
-  utils/
-    validation.ts
-    hierarchy.ts
-  org-chart.ts
-  org-chart.html
-  public-api.ts
-```
-
-Regla clave: el componente `org-chart.ts` no debe conocer detalles de una API
-especifica. Solo recibe nodos en el contrato generico.
-
-### 2) Modelo de dominio (tipado fuerte)
-
-Definir tipos de negocio primero:
-
-```typescript
-export interface Role {
-	id: string;
-	name: string;
-	level?: number;
-}
-
-export interface Person {
-	id: string;
-	fullName: string;
-	role: Role;
-	email?: string;
-	location?: string;
-}
-
-export interface Process {
-	id: string;
-	titulo: string;
-	subtitulo: string;
-	responsables: readonly Person[];
-	childProcessIds?: readonly string[];
-}
-```
-
-Esto evita acoplar la UI con nombres de campos de una sola fuente de datos.
-
-### 3) Contrato visual unico (`OrgNode<TData>`)
-
-El grafico sigue consumiendo un contrato unico. `TData` transporta el modelo
-real (`Process`, `Person`, etc.).
-
-```typescript
-export interface OrgNode<TData = unknown> {
-	id: string;
-	parentId: string | null;
-	name: string;
-	role: string;
-	data?: TData;
-}
-```
-
-Convencion sugerida:
-
-- Para `Proceso`: `name = titulo`, `role = subtitulo`.
-- `data` guarda el objeto completo para detalles avanzados.
-
-### 4) Adaptadores por fuente de datos
-
-Crear una funcion adaptadora por tipo de entrada. Ejemplo para `Process`:
-
-```typescript
-export function mapProcessToOrgNode(
-	process: Process,
-	parentId: string | null,
-): OrgNode<Process> {
-	return {
-		id: process.id,
-		parentId,
-		name: process.titulo,
-		role: process.subtitulo,
-		data: process,
-	};
-}
-```
-
-Si la API cambia, ajustas solo el adaptador, no el componente.
-
-### 5) Tarjetas con tipos de datos diferentes
-
-Resolver con `cardFields` por nodo, no con plantillas acopladas. El contrato
-de fila ya existe (`label`, `value`). Extiende con formato opcional:
-
-```typescript
-export interface OrgCardField {
-	label: string;
-	value: string | number | boolean | null | undefined;
-	highlight?: boolean;
-}
-```
-
-Ejemplo para `Process`:
-
-```typescript
-readonly processFields = (node: OrgNode<Process>): readonly OrgCardField[] => {
-	const p = node.data;
-	if (!p) return [];
-
-	return [
-		{ label: 'Titulo', value: p.titulo, highlight: true },
-		{ label: 'Subtitulo', value: p.subtitulo },
-		{ label: 'Responsables', value: p.responsables.length },
-		{
-			label: 'Cargos',
-			value: [...new Set(p.responsables.map(x => x.role.name))].join(', '),
-		},
-	];
-};
-```
-
-Con este enfoque cada nodo puede representar:
-
-- proceso,
-- persona,
-- area,
-- indicador,
-
-sin cambiar la API del componente.
-
-### 6) Variantes de tarjeta (template strategy)
-
-Cuando necesites layouts realmente distintos, agregar estrategia de render:
-
-```typescript
-export type CardKind = 'process' | 'person' | 'team';
-
-export interface CardRenderContext<T> {
-	node: OrgNode<T>;
-	fields: readonly OrgCardField[];
-	kind: CardKind;
-}
-```
-
-Luego `nodeContent()` decide clases y distribucion segun `kind`.
-
-### 7) Estado y flujo de datos
-
-Flujo recomendado:
-
-1. Servicio HTTP obtiene procesos/personas.
-2. Adaptador convierte al contrato `OrgNode<T>`.
-3. `signal` de estado mantiene la lista.
-4. Componente renderiza y emite `nodeSelected`.
-5. Contenedor abre panel de detalle con `node.data` tipado.
-
-Evitar mutar arreglos in-place; siempre reemplazar referencias (`set`/`update`).
-
-### 8) Validaciones tecnicas obligatorias
-
-Antes de renderizar:
-
-- un solo nodo raiz,
-- IDs unicos,
-- `parentId` existente (excepto raiz),
-- sin ciclos,
-- `name` y `role` no vacios.
-
-Estas reglas deben vivir en utilidades puras y con pruebas unitarias.
-
-### 9) Accesibilidad y seguridad
-
-- Mantener vista alternativa en lista para teclado/lectores de pantalla.
-- Nunca interpolar HTML remoto en `nodeContent()`.
-- Usar `textContent` para texto externo.
-- Si agregas links/imagenes, validar protocolo y dominio permitido.
-
-### 10) Testing minimo para hacerla mantenible
-
-Cobertura recomendada:
-
-- Adaptadores: mapean correctamente cada tipo de API.
-- Validacion jerarquica: raiz, ciclos, padres faltantes, IDs duplicados.
-- `cardFields`: formatea valores complejos y nulos.
-- Componente: render basico, `nodeSelected`, cambios de inputs.
-
-Comandos:
-
-```bash
-npm test -- --watch=false
-npm run build
-```
-
-### 11) Si decides publicarla como libreria Angular
-
-Pasos:
-
-1. Crear proyecto de libreria (`ng generate library org-chart-lib`).
-2. Mover `model`, `adapters`, `rendering`, `utils` y componente.
-3. Definir `public-api.ts` con exports estables.
-4. Mantener versionado semantico (breaking changes solo en major).
-5. Documentar ejemplos por caso: `Process`, `Employee`, `Team`.
-
-### 12) Checklist de implementacion por fases
-
-1. Fase A: consolidar modelos (`Process`, `Person`, `Role`) y adaptadores.
-2. Fase B: estandarizar `cardFields` para tipos mixtos.
-3. Fase C: introducir `CardKind` para layouts diferentes.
-4. Fase D: reforzar validaciones y pruebas.
-5. Fase E: extraer a libreria y publicar.
-
-Con esta ruta puedes soportar tarjetas heterogeneas sin romper el contrato del
-grafico y mantener una base extensible para nuevos tipos de datos.
-
-## Development server
-
-To start a local development server, run:
-
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+### El Grafico No Cambia al Editar Datos
+
+Reemplaza el arreglo con `nodes.set(...)` o `nodes.update(...)`. No uses
+`push()` ni modifiques un objeto anidado conservando todas las referencias.
+Comprueba que el resultado pasa `validateOrgNodes` y que no hay un mensaje de
+error. Si el directorio cambia pero la tarjeta no, revisa `cardFields` y el
+mapeo de `name`/`role`.
+
+### Campos Recortados o Ausentes
+
+Agregar una propiedad a `data` no la muestra automaticamente. Incluyela en
+`cardFields` o en el panel. Las tarjetas usan dimensiones comunes y textos
+truncados: aumenta `nodeWidth`/`nodeHeight` o cambia `nodeContent()` si necesitas
+otra distribucion. El zoom no aumenta la capacidad de contenido de la tarjeta.
+
+### Error de Jerarquia al Guardar o Borrar
+
+Comprueba que exista una sola raiz, que todos los padres existan y que no
+estes moviendo un nodo bajo un descendiente suyo. Para borrar un nodo con
+hijos, solicita cascada explicitamente. No crees una segunda raiz para
+representar otro arbol: agrega un padre comun o usa otra instancia del chart.
+
+### Puerto Ocupado o Error de Vite SSR
+
+Usa `npm start -- --port 4202` si el puerto habitual esta ocupado. Evita
+ejecutar varios servidores de desarrollo sobre el mismo workspace y cache.
+Si aparece un timeout de carga de modulos SSR de Vite, deten el servidor de
+esa instancia y vuelve a iniciarlo. Puedes aislar si el problema es de desarrollo
+probando `npm run build` y sirviendo la compilacion con el script SSR.
+No necesitas cambiar el componente para diagnosticar un problema del servidor.
+
+## Evolucion Hacia una Biblioteca
+
+Esta seccion es una propuesta, **no una estructura ya creada ni una API disponible**.
+El paquete raiz es privado y la carpeta de componentes sigue formando parte de
+la aplicacion. La reutilizacion actual se hace mediante sus exports locales.
+
+### Reutilizar el Codigo Hoy
+
+Para integrarlo en otra aplicacion Angular compatible, traslada la carpeta
+[src/app/org-chart](src/app/org-chart) completa, conservando plantilla y estilos,
+y ajusta el import del consumidor. Declara en la aplicacion destino las
+dependencias de runtime `d3-org-chart` y `@lucide/angular`, y los tipos
+`@types/d3-org-chart` / `@types/d3` que requiera su compilacion TypeScript.
+Verifica la compatibilidad con sus versiones de Angular y TypeScript.
+
+No necesitas trasladar los modelos de procesos, las demos ni Tailwind para el
+chart. Sus estilos principales estan encapsulados y las tarjetas usan estilos
+inline; las clases auxiliares presentes en el HTML no sustituyen esos estilos.
+Esta copia manual es una forma de integrar la POC, no una estrategia de
+distribucion y actualizacion de una biblioteca publicada.
+
+### Extraer un Paquete Angular
+
+1. Generar un proyecto de biblioteca con `npm run ng -- generate library org-chart-lib`.
+2. Mover el componente, plantilla, estilos, contrato y funciones puras al proyecto generado. Mantener las demos y los adaptadores de negocio en la aplicacion consumidora.
+3. Definir un `public-api.ts` que publique las mismas exportaciones del punto de entrada local y evitar imports a archivos internos desde los consumidores.
+4. Definir dependencias y peer dependencies compatibles con el formato Angular de distribucion; comprobar D3, Lucide y sus tipos en una aplicacion externa de prueba.
+5. Migrar las pruebas, generar el paquete con el target de la biblioteca y verificar su consumo mediante un paquete local antes de publicarlo.
+6. Agregar versionado semantico, changelog, licencia elegida por los responsables y un proceso de publicacion. No publicar el paquete raiz privado de la POC.
+
+### Mejoras Pendientes
+
+| Area | Evolucion propuesta |
+| --- | --- |
+| Renderizado | Estrategia de tarjetas por tipo o callback publico; hoy solo hay un layout comun y `cardFields`. |
+| Integracion Angular | Evaluar un mecanismo de componentes o templates dentro de nodos, con gestion explicita de su creacion y destruccion. |
+| Datos | Servicio HTTP, persistencia, autorizacion y estrategia de concurrencia en el consumidor. |
+| Validacion | Reglas de dominio y dimensiones, segun el producto que adopte el chart. |
+| Calidad | E2E del SVG real, auditorias Axe, cobertura y regresion visual. |
+| Rendimiento | Medir volumen de nodos, frecuencia de cambios y coste del redibujado antes de optimizar. |
+| Distribucion | Biblioteca Angular independiente, API versionada y pruebas de compatibilidad. |
+
+No existen actualmente `CardKind`, `CardRenderContext`, `highlight` en
+`OrgCardField`, un store compartido ni un `public-api.ts`. Son posibles
+evoluciones; no deben usarse como si fueran contratos implementados.
+
+## Referencias
+
+- [Angular](https://angular.dev/): componentes, signals, router e hidratacion.
+- [Compatibilidad de versiones Angular](https://angular.dev/reference/versions).
+- [Creacion de bibliotecas Angular](https://angular.dev/tools/libraries/creating-libraries).
+- [d3-org-chart](https://github.com/bumbeishvili/org-chart): motor del organigrama.
+- [Lucide](https://lucide.dev/): iconografia.
+- [Vitest](https://vitest.dev/): runner de pruebas.
+- [Tailwind CSS](https://tailwindcss.com/): estilos de la pantalla de procesos.
