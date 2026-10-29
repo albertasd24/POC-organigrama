@@ -141,6 +141,21 @@ export class OrgChartDemo {
     }
   }
 
+  moveNode(move: { readonly id: string; readonly parentId: string }): void {
+    try {
+      this.nodes.update((nodes) => {
+        const updated = updateOrgNode(nodes, move.id, { parentId: move.parentId });
+        validateDemoHierarchy(updated);
+        return updated;
+      });
+      this.status.set('Nodo movido.');
+      const node = this.nodes().find((item) => item.id === this.selectedId());
+      if (node) this.selectNode(node);
+    } catch (error: unknown) {
+      this.error.set(error instanceof Error ? error.message : 'No se pudo mover el nodo.');
+    }
+  }
+
   remove(): void {
     const selected = this.selected();
     if (!selected) return;

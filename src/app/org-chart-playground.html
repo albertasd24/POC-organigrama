@@ -9,7 +9,7 @@
 </header>
 <main>
   <section class="chart" aria-label="Organigrama interactivo">
-    <app-org-chart [nodes]="nodes()" [cardFields]="cardFields" [selectedNodeId]="selectedId()" [nodeWidth]="280" [nodeHeight]="140" [height]="560" (nodeSelected)="selectNode($event)" />
+    <app-org-chart [nodes]="nodes()" [cardFields]="cardFields" [selectedNodeId]="selectedId()" [nodeWidth]="280" [nodeHeight]="140" [height]="560" [draggable]="true" (nodeSelected)="selectNode($event)" (nodeMoved)="moveNode($event)" />
   </section>
   <aside aria-labelledby="node-detail">
     <h2 id="node-detail">{{ creating() ? 'Nuevo nodo' : 'Detalle del nodo' }}</h2>

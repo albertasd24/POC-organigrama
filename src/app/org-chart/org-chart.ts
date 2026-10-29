@@ -23,6 +23,8 @@ export interface OrgCardField {
 export class OrgChartComponent<T = unknown> {
   readonly nodes = input.required<readonly OrgNode<T>[]>();
   readonly nodeSelected = output<OrgNode<T>>();
+  readonly nodeMoved = output<{ readonly id: string; readonly parentId: string }>();
+  readonly draggable = input(false);
   readonly cardFields = input<(node: OrgNode<T>) => readonly OrgCardField[]>(() => []);
   readonly nodeWidth = input(240);
   readonly nodeHeight = input(112);
@@ -45,13 +47,14 @@ export class OrgChartComponent<T = unknown> {
       const height = this.height();
       const cardFields = this.cardFields();
       const selectedNodeId = this.selectedNodeId();
+      const draggable = this.draggable();
       if (!this.ready() || !this.chart) return;
       this.error.set(null);
       try {
         validateOrgNodes(nodes);
         this.nodeById = new Map(nodes.map((node) => [node.id, node]));
         this.chart.nodeWidth(() => width).nodeHeight(() => nodeHeight).svgHeight(height);
-        this.chart.nodeContent((node) => this.nodeContent(node.data, cardFields(node.data), node.data.id === selectedNodeId));
+        this.chart.nodeContent((node) => this.nodeContent(node.data, cardFields(node.data), node.data.id === selectedNodeId, draggable));
         this.chart.data(nodes.map((node) => ({ ...node }))).render();
       } catch (error: unknown) {
         this.chart.clear();
@@ -75,7 +78,9 @@ export class OrgChartComponent<T = unknown> {
       const { OrgChart } = await import('d3-org-chart');
       if (this.destroyRef.destroyed) return;
       const containerId = `org-chart-${crypto.randomUUID()}`;
-      this.host().nativeElement.id = containerId;
+      const hostEl = this.host().nativeElement;
+      hostEl.id = containerId;
+      this.bindDragEvents(hostEl);
       this.chart = new OrgChart<OrgNode<T>>()
         .container(`#${containerId}`)
         .duration(0)
@@ -90,9 +95,50 @@ export class OrgChartComponent<T = unknown> {
     }
   }
 
-  private nodeContent(node: OrgNode<T>, fields: readonly OrgCardField[], selected: boolean): string {
+  private bindDragEvents(hostEl: HTMLElement): void {
+    let draggedId: string | null = null;
+    let overEl: HTMLElement | null = null;
+    const cardOf = (event: Event) => (event.target as HTMLElement | null)?.closest<HTMLElement>('.org-chart-card[data-node-id]') ?? null;
+    const clearOver = () => { if (overEl) overEl.style.outline = ''; overEl = null; };
+    const canDrop = (targetId: string): boolean => {
+      if (!draggedId || draggedId === targetId) return false;
+      const dragged = this.nodeById.get(draggedId);
+      if (!dragged || dragged.parentId === null || dragged.parentId === targetId) return false;
+      for (let cur = this.nodeById.get(targetId); cur; cur = cur.parentId ? this.nodeById.get(cur.parentId) : undefined) {
+        if (cur.id === draggedId) return false;
+      }
+      return true;
+    };
+    hostEl.addEventListener('dragstart', (event) => {
+      const card = cardOf(event);
+      draggedId = card?.dataset['nodeId'] ?? null;
+      if (draggedId && event.dataTransfer) { event.dataTransfer.setData('text/plain', draggedId); event.dataTransfer.effectAllowed = 'move'; }
+    });
+    hostEl.addEventListener('dragover', (event) => {
+      const card = cardOf(event);
+      clearOver();
+      if (!card || !canDrop(card.dataset['nodeId']!)) return;
+      event.preventDefault();
+      card.style.outline = '3px dashed #047857';
+      overEl = card;
+    });
+    hostEl.addEventListener('drop', (event) => {
+      const card = cardOf(event);
+      clearOver();
+      const targetId = card?.dataset['nodeId'];
+      if (!draggedId || !targetId || !canDrop(targetId)) return;
+      event.preventDefault();
+      this.nodeMoved.emit({ id: draggedId, parentId: targetId });
+      draggedId = null;
+    });
+    hostEl.addEventListener('dragend', () => { clearOver(); draggedId = null; });
+  }
+
+  private nodeContent(node: OrgNode<T>, fields: readonly OrgCardField[], selected: boolean, draggable: boolean): string {
     const card = this.document.createElement('div');
     card.className = 'org-chart-card';
+    card.dataset['nodeId'] = node.id;
+    if (draggable && node.parentId !== null) card.draggable = true;
     Object.assign(card.style, {
       boxSizing: 'border-box', display: 'flex', height: '100%', alignItems: 'center', gap: '12px',
       borderRadius: '8px', border: `1px solid ${selected ? '#047857' : '#d4d4d8'}`,
